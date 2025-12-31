@@ -1,0 +1,83 @@
+DOWNSIDES OF USING .cursorignore FOR LARGE FILES
+==================================================
+
+1. CODE INTELLIGENCE LIMITATIONS
+--------------------------------
+- Cursor won't provide autocomplete for file paths to excluded files
+- Example: When typing "data/coinrun_frames.h5", Cursor may not suggest it
+- Code references to these files won't be tracked in Cursor's symbol index
+- "Go to Definition" or "Find References" won't work for these file paths
+
+2. FILE SEARCH LIMITATIONS
+--------------------------
+- Cursor's file search (Ctrl+P) won't find excluded files
+- You can't quickly navigate to these files through Cursor's file picker
+- File explorer may not show these files (depending on Cursor version)
+
+3. FILE WATCHING DISABLED
+-------------------------
+- Cursor won't detect changes to excluded files
+- If you modify H5 files programmatically, Cursor won't track those changes
+- No notifications if these files are created/deleted/modified
+
+4. CODE ANALYSIS GAPS
+----------------------
+- If your code loads these files (like collect_coinrun_data.py does), 
+  Cursor won't understand the relationship between code and data files
+- Static analysis tools in Cursor won't verify file existence for excluded files
+- Potential false positives in error checking
+
+5. MAINTENANCE OVERHEAD
+-----------------------
+- Need to remember to update .cursorignore when adding new large files
+- If you accidentally exclude important files, you won't notice immediately
+- Team members need to be aware of .cursorignore patterns
+
+6. INCONSISTENCY WITH OTHER TOOLS
+---------------------------------
+- .cursorignore only affects Cursor, not other tools
+- Git, file managers, and other IDEs will still see these files
+- May cause confusion when switching between tools
+
+7. BINARY FILE LIMITATIONS (Less Critical)
+------------------------------------------
+- H5 files are binary anyway, so most downsides don't apply
+- Can't search content inside binary files regardless
+- Code intelligence for binary files is limited anyway
+
+8. POTENTIAL WORKFLOW ISSUES
+----------------------------
+- If you need to inspect H5 file structure/metadata, you'll need external tools
+- Scripts that reference these files won't get full IDE support
+- Documentation or comments about these files won't be linked properly
+
+9. FALSE SENSE OF OPTIMIZATION
+-------------------------------
+- Files still consume disk space
+- Other processes may still try to index them
+- Only Cursor benefits from exclusion
+
+10. VERSION CONTROL CONSIDERATIONS
+-----------------------------------
+- .cursorignore should probably be committed to git
+- But it's workspace-specific, so may not be appropriate for shared repos
+- Team members with different setups may have different needs
+
+MITIGATION STRATEGIES
+=====================
+
+1. Use explicit file paths in code (already done in your codebase)
+2. Keep .cursorignore patterns specific (don't over-exclude)
+3. Document excluded patterns in README
+4. Use external tools (h5py, h5dump) for inspecting H5 files
+5. Consider symlinks for data directory if needed elsewhere
+
+RECOMMENDATION
+==============
+For your use case (large binary H5 data files), the downsides are MINIMAL because:
+- H5 files are binary and not searchable anyway
+- Your code already uses explicit paths (data/coinrun_frames.h5)
+- The memory savings (20GB -> 88MB) far outweigh the limitations
+- You're not doing text search or code analysis on binary data files
+
+The approach is APPROPRIATE for this scenario.

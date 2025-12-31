@@ -1,0 +1,80 @@
+# Large dataset files
+data/
+*.h5
+*.hdf5
+
+# Git directories (nested repos)
+.git/
+**/.git/
+
+# Cache directories
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Model checkpoints and weights
+checkpoints/
+**/checkpoint.*
+**/*checkpoint*.pth
+**/*checkpoint*.pt
+**/*checkpoint*.ckpt
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+*.bin
+*.pkl
+*.pickle
+
+# Log files
+*.log
+*.out
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment and virtual environments
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# STTN specific (from STTN/.gitignore)
+release_model
+debug.py
+*.avi
+examples/*_result.mp4
+*.jpg
+*.png
+*.zip
+
+# Large PDF files
+*.pdf
+
+# Hugging Face cache
+.cache/huggingface/
+
+# OS files
+Thumbs.db
+.DS_Store

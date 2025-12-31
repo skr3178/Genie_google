@@ -1,0 +1,4 @@
+- Error accumulation in training models
+- Genie uses much smaller context window - 16 - how to reduce it?
+
+

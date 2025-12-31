@@ -1,0 +1,65 @@
+# Video Tokenizer (ST-ViViT) Configuration
+# Scaled down for 16GB GPU
+
+model:
+  name: "video_tokenizer"
+  
+  encoder:
+    num_layers: 6
+    d_model: 384
+    num_heads: 6
+    k_q_size: 60
+    dim_feedforward: 1536  # 4 * d_model
+    dropout: 0.1
+    activation: "gelu"
+  
+  decoder:
+    num_layers: 8  # Reduced from 10
+    d_model: 384  # Reduced from 512 to match encoder
+    num_heads: 6  # Reduced from 8
+    k_q_size: 60  # Reduced from 64 to match encoder
+    dim_feedforward: 1536  # 4 * d_model
+    dropout: 0.1
+    activation: "gelu"
+  
+  codebook:
+    num_codes: 512  # Reduced from 1024 to match scaled model (decoder is ~50% of original)
+    latent_dim: 32  # Keep same as paper
+    commitment_cost: 0.25
+    decay: 0.99
+    epsilon: 1e-5
+  
+  patch_size: 4
+
+data:
+  sequence_length: 16
+  fps: 10
+  resolution: [128, 72, 3]  # [H, W, C] scaled from 160x90
+  batch_size: 1  # Reduced from 2 to fit GPU memory
+  num_workers: 2  # Reduced from 4
+
+training:
+  max_lr: 3.0e-4
+  min_lr: 3.0e-4
+  beta1: 0.9
+  beta2: 0.9
+  weight_decay: 1.0e-4
+  warmup_steps: 2000  # Scaled from 10k
+  max_steps: 30000  # Scaled from 300k
+  lr_schedule: "cosine"
+  
+  # Loss weights
+  reconstruction_weight: 1.0
+  commitment_weight: 0.25
+  codebook_weight: 1.0
+  
+  # Training settings
+  mixed_precision: true
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+  save_every: 5000
+  eval_every: 1000
+
+output:
+  checkpoint_dir: "checkpoints/tokenizer"
+  log_dir: "logs/tokenizer"

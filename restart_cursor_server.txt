@@ -1,0 +1,81 @@
+CURSOR SERVER RESTART AND UPDATE GUIDE
+======================================
+
+Current Status:
+- Cursor Server Version: 2.3.15
+- Main Server Process PID: 13323 (using 20.1 GB RAM)
+- Server Location: /home/skr/.cursor-server/
+
+METHOD 1: RESTART FROM CURSOR CLIENT (RECOMMENDED)
+---------------------------------------------------
+1. Disconnect from SSH in Cursor client
+2. Close the remote connection
+3. Reconnect to the SSH server
+4. Cursor will automatically:
+   - Check for server updates
+   - Download latest version if available
+   - Start new server process
+   - Apply .cursorignore settings
+
+METHOD 2: MANUAL SERVER RESTART (IF CLIENT METHOD FAILS)
+---------------------------------------------------------
+Run these commands on the SSH server:
+
+# Step 1: Find and kill all Cursor server processes
+pkill -f "cursor-server"
+pkill -f "server-main.js"
+pkill -f "bootstrap-fork.*cursor"
+
+# Step 2: Wait a moment for processes to terminate
+sleep 2
+
+# Step 3: Verify processes are killed
+ps aux | grep cursor | grep -v grep
+
+# Step 4: Clean up old connection tokens (optional)
+rm -f /run/user/1000/cursor-remote-code.token.*
+
+# Step 5: Reconnect from Cursor client
+# The client will automatically start a new server
+
+METHOD 3: FORCE UPDATE (IF VERSION IS OUTDATED)
+-----------------------------------------------
+# Check current version
+cat /home/skr/.cursor-server/bin/bb2dbaacf30bb7eb9fd48a37812a8f326defa530/package.json | grep version
+
+# Remove old server binaries (Cursor will re-download latest)
+rm -rf /home/skr/.cursor-server/bin/*
+
+# Reconnect from Cursor client
+# It will download and install the latest server version
+
+VERIFICATION AFTER RESTART
+---------------------------
+# Check new server process memory usage
+ps aux --sort=-%mem | grep cursor | grep -v grep
+
+# Expected: Memory should be much lower (under 2GB initially)
+# The .cursorignore file will prevent indexing large H5 files
+
+# Verify .cursorignore is being used
+ls -lh /media/skr/storage/robot_world/Genie/Genie_SKR/.cursorignore
+
+TROUBLESHOOTING
+---------------
+If server won't restart:
+1. Check disk space: df -h
+2. Check permissions: ls -la /home/skr/.cursor-server/
+3. Check logs: tail -f ~/.cursor-server/data/logs/*/main.log
+4. Try removing .cursor-server directory completely and reconnecting
+
+If memory is still high after restart:
+1. Verify .cursorignore file exists and has correct patterns
+2. Check if large files are being watched: lsof | grep cursor | grep h5
+3. Consider moving data/ directory outside workspace
+
+NOTES
+-----
+- Cursor server updates automatically when you reconnect
+- The .cursorignore file was created to exclude large H5 files
+- After restart, memory usage should drop significantly
+- Server version updates happen automatically via Cursor client

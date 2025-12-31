@@ -1,0 +1,48 @@
+# Large data files that should not be indexed by Cursor
+# These binary H5 files are causing high memory usage
+
+# Data directory - exclude all H5 files
+data/*.h5
+data/**/*.h5
+
+# Large model checkpoints and weights
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Cache directories
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Large log files
+*.log
+*.log.*
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Large datasets
+datasets/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Model outputs
+outputs/
+results/
+checkpoints/
