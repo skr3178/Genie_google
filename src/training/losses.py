@@ -22,12 +22,21 @@ def reconstruction_loss(
     Returns:
         Reconstruction loss
     """
+    # Clamp predictions to valid range to prevent NaN
+    pred = torch.clamp(pred, min=1e-8, max=1.0 - 1e-8)
+    
     if loss_type == "mse":
-        return F.mse_loss(pred, target)
+        loss = F.mse_loss(pred, target)
     elif loss_type == "bce":
-        return F.binary_cross_entropy(pred, target)
+        loss = F.binary_cross_entropy(pred, target)
     else:
         raise ValueError(f"Unknown loss type: {loss_type}")
+    
+    # Check for NaN and replace with a small value
+    if torch.isnan(loss) or torch.isinf(loss):
+        loss = torch.tensor(1.0, device=loss.device, dtype=loss.dtype)
+    
+    return loss
 
 
 def vq_loss(
@@ -46,15 +55,39 @@ def vq_loss(
     Returns:
         Dictionary with weighted losses
     """
+    # Get losses with default values and ensure they're valid
+    commitment_loss = vq_loss_dict.get('commitment_loss', torch.tensor(0.0))
+    codebook_loss = vq_loss_dict.get('codebook_loss', torch.tensor(0.0))
+    
+    # Ensure tensors have proper device/dtype
+    if not isinstance(commitment_loss, torch.Tensor):
+        commitment_loss = torch.tensor(float(commitment_loss))
+    if not isinstance(codebook_loss, torch.Tensor):
+        codebook_loss = torch.tensor(float(codebook_loss))
+    
+    # Check for NaN/Inf and replace with small values
+    if torch.isnan(commitment_loss) or torch.isinf(commitment_loss):
+        device = commitment_loss.device if isinstance(commitment_loss, torch.Tensor) else 'cpu'
+        dtype = commitment_loss.dtype if isinstance(commitment_loss, torch.Tensor) else torch.float32
+        commitment_loss = torch.tensor(0.0, device=device, dtype=dtype)
+    if torch.isnan(codebook_loss) or torch.isinf(codebook_loss):
+        device = codebook_loss.device if isinstance(codebook_loss, torch.Tensor) else 'cpu'
+        dtype = codebook_loss.dtype if isinstance(codebook_loss, torch.Tensor) else torch.float32
+        codebook_loss = torch.tensor(0.0, device=device, dtype=dtype)
+    
     total_loss = (
-        commitment_weight * vq_loss_dict.get('commitment_loss', torch.tensor(0.0)) +
-        codebook_weight * vq_loss_dict.get('codebook_loss', torch.tensor(0.0))
+        commitment_weight * commitment_loss +
+        codebook_weight * codebook_loss
     )
+    
+    # Final check on total loss
+    if torch.isnan(total_loss) or torch.isinf(total_loss):
+        total_loss = torch.tensor(0.0, device=total_loss.device, dtype=total_loss.dtype)
     
     return {
         'vq_loss': total_loss,
-        'commitment_loss': vq_loss_dict.get('commitment_loss', torch.tensor(0.0)),
-        'codebook_loss': vq_loss_dict.get('codebook_loss', torch.tensor(0.0)),
+        'commitment_loss': commitment_loss,
+        'codebook_loss': codebook_loss,
         'perplexity': vq_loss_dict.get('perplexity', torch.tensor(0.0)),
     }
 

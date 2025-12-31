@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 from typing import Tuple
 
 
@@ -32,9 +33,9 @@ class VectorQuantizer(nn.Module):
         self.decay = float(decay)
         self.epsilon = float(epsilon)
         
-        # Initialize codebook
+        # Initialize codebook with proper scaling
         self.register_buffer('codebook', torch.randn(num_codes, latent_dim))
-        self.codebook.data.normal_() / latent_dim
+        self.codebook.data.mul_(1.0 / math.sqrt(latent_dim))
         
         # Exponential moving average for codebook updates
         self.register_buffer('ema_cluster_size', torch.zeros(num_codes))
@@ -54,17 +55,8 @@ class VectorQuantizer(nn.Module):
         """
         # Flatten input: (..., latent_dim) -> (N, latent_dim)
         input_shape = inputs.shape
-        # #region agent log
-        import json
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"vq.py:56","message":"VQ forward - input shape","data":{"input_shape":list(input_shape),"latent_dim":self.latent_dim},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         flat_input = inputs.view(-1, self.latent_dim)
         num_vectors = flat_input.shape[0]
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"vq.py:58","message":"After flatten - flat_input shape and num_vectors","data":{"flat_input_shape":list(flat_input.shape),"num_vectors":num_vectors,"input_numel":inputs.numel()},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         
         # Calculate distances to codebook
         distances = (
@@ -72,17 +64,9 @@ class VectorQuantizer(nn.Module):
             torch.sum(self.codebook ** 2, dim=1) -
             2 * torch.matmul(flat_input, self.codebook.t())
         )
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"vq.py:65","message":"After distance calculation - distances shape","data":{"distances_shape":list(distances.shape),"codebook_shape":list(self.codebook.shape)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         
         # Find closest codebook entries
         encoding_indices = torch.argmin(distances, dim=1)  # (num_vectors,)
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"vq.py:68","message":"After argmin - encoding_indices shape","data":{"encoding_indices_shape":list(encoding_indices.shape),"encoding_indices_numel":encoding_indices.numel(),"expected_numel":num_vectors},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         encodings = torch.zeros(
             num_vectors,
             self.num_codes,
@@ -126,9 +110,11 @@ class VectorQuantizer(nn.Module):
             dw = torch.matmul(encodings.t(), flat_input)
             self.ema_w.mul_(self.decay).add_(dw, alpha=1 - self.decay)
             
-            # Update codebook
+            # Update codebook with numerical stability
+            # Add epsilon to prevent division by zero
+            cluster_size_safe = cluster_size.unsqueeze(1) + self.epsilon
             self.codebook.data.copy_(
-                self.ema_w / cluster_size.unsqueeze(1)
+                self.ema_w / cluster_size_safe
             )
         
         loss_dict = {
@@ -146,10 +132,6 @@ class VectorQuantizer(nn.Module):
         else:
             tokens_shape = input_shape[:-1]
             tokens = encoding_indices.reshape(tokens_shape)
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"vq.py:131","message":"Before return - tokens shape","data":{"tokens_shape":list(tokens.shape),"tokens_numel":tokens.numel(),"input_shape":list(input_shape),"input_shape_len":len(input_shape)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         
         return quantized_st, tokens, loss_dict
     

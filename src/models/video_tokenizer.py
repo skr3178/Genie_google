@@ -248,24 +248,11 @@ class VideoTokenizer(nn.Module):
         
         # Project to latent_dim for quantization
         B, T, H_patches, W_patches, d_encoder = encoded.shape
-        # #region agent log
-        import json
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"post-fix","hypothesisId":"C","location":"video_tokenizer.py:248","message":"Before projection - encoded shape","data":{"encoded_shape":list(encoded.shape),"B":B,"T":T,"H_patches":H_patches,"W_patches":W_patches,"d_encoder":d_encoder},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         encoded_flat = encoded.view(B * T * H_patches * W_patches, d_encoder)
         latent_flat = self.pre_quantizer_proj(encoded_flat)  # (N, latent_dim)
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"post-fix","hypothesisId":"C","location":"video_tokenizer.py:251","message":"After pre-projection - latent_flat shape","data":{"latent_flat_shape":list(latent_flat.shape)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         
         # Quantize
         quantized_latent, tokens, vq_loss_dict = self.quantizer(latent_flat)
-        # #region agent log
-        with open('/media/skr/storage/robot_world/Genie/Genie_SKR/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"post-fix","hypothesisId":"E","location":"video_tokenizer.py:255","message":"After quantizer - tokens and quantized_latent shape","data":{"tokens_shape":list(tokens.shape),"tokens_numel":tokens.numel(),"quantized_latent_shape":list(quantized_latent.shape),"expected_shape":[B,T,H_patches,W_patches],"expected_numel":B*T*H_patches*W_patches},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
         
         # Project back to decoder d_model
         quantized = self.post_quantizer_proj(quantized_latent)  # (N, d_decoder)

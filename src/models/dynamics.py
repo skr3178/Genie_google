@@ -168,6 +168,19 @@ class MaskGITDecoder(nn.Module):
         elif actions.dim() == 2:
             # (B, T) -> expand to (B, T, H_patches, W_patches)
             actions = actions.unsqueeze(2).unsqueeze(3).expand(-1, -1, H_patches, W_patches)
+        elif actions.dim() == 4:
+            # Actions are already (B, T, H_lam, W_lam) but may have different spatial dims
+            _, T_actions, H_lam, W_lam = actions.shape
+            # Need to interpolate/upsample actions to match token spatial dimensions
+            if H_lam != H_patches or W_lam != W_patches:
+                # Reshape for interpolation: (B, T, H, W) -> (B*T, 1, H, W) for interpolate
+                actions_reshaped = actions.view(B * T, 1, H_lam, W_lam).float()
+                actions_interp = F.interpolate(
+                    actions_reshaped, 
+                    size=(H_patches, W_patches), 
+                    mode='nearest'
+                )
+                actions = actions_interp.view(B, T, H_patches, W_patches).long()
         # If already (B, T, H_patches, W_patches), use as is
         
         action_emb = self.action_embedding(actions)  # (B, T, H_patches, W_patches, d_model)
@@ -180,7 +193,12 @@ class MaskGITDecoder(nn.Module):
         # Apply mask if provided (for MaskGIT training)
         # Replace masked tokens with learnable mask token
         if mask is not None:
-            mask_expanded = mask.unsqueeze(-1).expand_as(x)  # (B, T, H_patches, W_patches, d_model)
+            # Convert bool mask to float if needed
+            if mask.dtype == torch.bool:
+                mask_float = mask.float()
+            else:
+                mask_float = mask
+            mask_expanded = mask_float.unsqueeze(-1).expand_as(x)  # (B, T, H_patches, W_patches, d_model)
             # Expand mask token to match spatial dimensions
             mask_token_expanded = self.mask_token.expand(B, T, H_patches, W_patches, -1)
             # Replace masked positions with mask token
@@ -295,11 +313,16 @@ class DynamicsModel(nn.Module):
         B, T, H_patches, W_patches = tokens.shape
         num_tokens = T * H_patches * W_patches
         
+        # Ensure input tokens are Long type for embedding lookup
+        if tokens.dtype != torch.long:
+            tokens = tokens.long()
+        
         # Start with all tokens masked
-        mask = torch.ones(B, T, H_patches, W_patches, device=tokens.device)
+        mask = torch.ones(B, T, H_patches, W_patches, device=tokens.device, dtype=torch.bool)
         
         # Initialize with random tokens (or use provided tokens)
-        current_tokens = tokens.clone()
+        # Ensure tokens are Long type for embedding lookup
+        current_tokens = tokens.clone().long()
         
         for step in range(steps):
             # Get logits for all tokens
@@ -320,7 +343,7 @@ class DynamicsModel(nn.Module):
             mask_flat = mask.view(B, -1)  # (B, num_tokens)
             
             # Only consider currently masked tokens
-            masked_confidence = confidence_flat * mask_flat
+            masked_confidence = confidence_flat * mask_flat.float()
             
             # Get top-k masked tokens to unmask
             _, top_indices = torch.topk(masked_confidence, num_to_unmask, dim=-1)
@@ -328,17 +351,18 @@ class DynamicsModel(nn.Module):
             # Create batch indices
             batch_indices = torch.arange(B, device=tokens.device).unsqueeze(1).expand(-1, num_to_unmask)
             
-            # Unmask selected tokens
-            mask_flat[batch_indices, top_indices] = 0.0
+            # Unmask selected tokens (set to False)
+            mask_flat[batch_indices, top_indices] = False
             mask = mask_flat.view(B, T, H_patches, W_patches)
             
             # Sample new tokens for unmasked positions
-            sampled_tokens = torch.multinomial(
-                probs.view(B, -1, self.vocab_size),
-                1,
-            ).view(B, T, H_patches, W_patches)
+            # Flatten to (B*T*H*W, vocab_size) for multinomial, then reshape back
+            probs_flat = probs.view(-1, self.decoder.vocab_size)  # (B*T*H*W, vocab_size)
+            sampled_flat = torch.multinomial(probs_flat, 1)  # (B*T*H*W, 1)
+            sampled_tokens = sampled_flat.view(B, T, H_patches, W_patches).long()  # (B, T, H_patches, W_patches)
             
-            # Update tokens: keep unmasked, sample for newly unmasked
-            current_tokens = current_tokens * mask + sampled_tokens * (1 - mask)
+            # Update tokens: keep masked tokens, use sampled for unmasked positions
+            # Use torch.where to preserve Long dtype
+            current_tokens = torch.where(mask, current_tokens, sampled_tokens)
         
         return current_tokens

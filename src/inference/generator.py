@@ -12,7 +12,6 @@ class GenieGenerator:
     def __init__(
         self,
         tokenizer,
-        lam,
         dynamics_model,
         device: str = "cuda",
         maskgit_steps: int = 25,
@@ -21,14 +20,14 @@ class GenieGenerator:
         """
         Args:
             tokenizer: Trained video tokenizer
-            lam: Trained LAM model
             dynamics_model: Trained dynamics model
             device: Device to run on
             maskgit_steps: Number of MaskGIT steps for inference
             temperature: Temperature for sampling
+            
+        Note: LAM is NOT used during inference - user provides actions directly.
         """
         self.tokenizer = tokenizer.to(device).eval()
-        self.lam = lam.to(device).eval()
         self.dynamics_model = dynamics_model.to(device).eval()
         self.device = device
         self.maskgit_steps = maskgit_steps
@@ -144,7 +143,8 @@ class GenieGenerator:
         actions_expanded = action.unsqueeze(1).expand(-1, T + 1)
         
         # Apply MaskGIT iterative refinement
-        refined_tokens = self.dynamics_model.decoder.iterative_refinement(
+        # Note: iterative_refinement is a method of DynamicsModel, not decoder
+        refined_tokens = self.dynamics_model.iterative_refinement(
             all_tokens,
             actions_expanded,
             steps=steps,
@@ -160,20 +160,24 @@ class GenieGenerator:
     def load_models(
         self,
         tokenizer_path: str,
-        lam_path: str,
         dynamics_path: str,
     ):
-        """Load trained models from checkpoints"""
+        """Load trained models from checkpoints
+        
+        Note: LAM is NOT needed for inference - only tokenizer and dynamics model are used.
+        """
         # Load tokenizer
         tokenizer_checkpoint = torch.load(tokenizer_path, map_location=self.device)
-        self.tokenizer.load_state_dict(tokenizer_checkpoint['model_state_dict'])
-        
-        # Load LAM
-        lam_checkpoint = torch.load(lam_path, map_location=self.device)
-        self.lam.load_state_dict(lam_checkpoint['model_state_dict'])
+        if 'model_state_dict' in tokenizer_checkpoint:
+            self.tokenizer.load_state_dict(tokenizer_checkpoint['model_state_dict'])
+        else:
+            self.tokenizer.load_state_dict(tokenizer_checkpoint)
         
         # Load dynamics model
         dynamics_checkpoint = torch.load(dynamics_path, map_location=self.device)
-        self.dynamics_model.load_state_dict(dynamics_checkpoint['model_state_dict'])
+        if 'model_state_dict' in dynamics_checkpoint:
+            self.dynamics_model.load_state_dict(dynamics_checkpoint['model_state_dict'])
+        else:
+            self.dynamics_model.load_state_dict(dynamics_checkpoint)
         
-        print(f"Loaded models from {tokenizer_path}, {lam_path}, {dynamics_path}")
+        print(f"Loaded models from {tokenizer_path}, {dynamics_path}")

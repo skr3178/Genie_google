@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda", help="Device to train on")
     parser.add_argument("--max_steps", type=int, default=None, help="Maximum training steps (overrides config)")
     parser.add_argument("--save_every", type=int, default=None, help="Save checkpoint every N steps (overrides config)")
+    parser.add_argument("--batch_size", type=int, default=None, help="Batch size (overrides config)")
     args = parser.parse_args()
     
     # Load config
@@ -33,6 +34,8 @@ def main():
         config['training']['max_steps'] = args.max_steps
     if args.save_every is not None:
         config['training']['save_every'] = args.save_every
+    if args.batch_size is not None:
+        config['data']['batch_size'] = args.batch_size
     
     # Create dataset
     transform = VideoTransform(
@@ -49,13 +52,18 @@ def main():
         dataset_name=args.dataset,
     )
     
-    # Create data loader
+    # Create data loader with memory optimizations
+    batch_size = config['data']['batch_size']
+    # Reduce num_workers and disable pin_memory for very small batch sizes to save memory
+    num_workers = config['data'].get('num_workers', 2) if batch_size > 1 else 0
+    pin_memory = batch_size > 1  # Disable pin_memory for batch_size=1 to save memory
+    
     train_loader = DataLoader(
         dataset,
-        batch_size=config['data']['batch_size'],
+        batch_size=batch_size,
         shuffle=True,
-        num_workers=config['data'].get('num_workers', 4),
-        pin_memory=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     
     # Create model

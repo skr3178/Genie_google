@@ -264,8 +264,12 @@ class LAM(nn.Module):
         # Get history features (from past frames)
         # Re-encode past frames to get history
         past_frames_reshaped = past_frames.view(B * T, *past_frames.shape[2:])
-        past_patches = self.encoder.patch_embedding(past_frames_reshaped)
-        past_patches_reshaped = past_patches.view(B, T, H_patches, W_patches, d)
+        past_patches = self.encoder.patch_embedding(past_frames_reshaped)  # (B*T, d_model, H_patches, W_patches)
+        # Reshape from (B*T, d_model, H_patches, W_patches) to (B, T, H_patches, W_patches, d_model)
+        # Follow same pattern as encoder: view then permute
+        _, d_model, H_patches, W_patches = past_patches.shape
+        past_patches = past_patches.view(B, T, d_model, H_patches, W_patches)
+        past_patches_reshaped = past_patches.permute(0, 1, 3, 4, 2).contiguous()  # (B, T, H_patches, W_patches, d_model)
         history = self.encoder.transformer(past_patches_reshaped)[:, :-1]  # Remove last frame
         
         # Decode using history and quantized action

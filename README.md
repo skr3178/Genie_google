@@ -66,23 +66,65 @@ python scripts/train_lam.py \
 python scripts/train_dynamics.py \
     --config configs/dynamics_config.yaml \
     --data_dir data \
-    --tokenizer_path checkpoints/tokenizer/checkpoint_step_30000.pt \
-    --lam_path checkpoints/lam/checkpoint_step_20000.pt \
-    --device cuda
+    --dataset pong \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --lam_path checkpoints/lam/checkpoint_step_1000.pt \
+    --device cuda \
+    --max_steps 1000
 ```
 
+**Note**: Use `--max_steps` to override the default training steps. Use `--batch_size` to override batch size for memory management.
+
 ### Inference
+
+**Important**: At inference time, only the tokenizer and dynamics model are needed. LAM is NOT used during inference (as per Genie paper - users provide actions directly).
+
+#### Option 1: Save as Individual Frames (Recommended for viewing in editors)
 
 ```bash
 python scripts/inference.py \
     --prompt path/to/prompt_image.png \
     --actions "0,1,2,3,4,5,6,7" \
-    --tokenizer_path checkpoints/tokenizer/checkpoint_step_30000.pt \
-    --lam_path checkpoints/lam/checkpoint_step_20000.pt \
-    --dynamics_path checkpoints/dynamics/checkpoint_step_10000.pt \
-    --output output.mp4 \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
+    --output generated_frames \
+    --save_frames \
     --num_frames 16 \
     --device cuda
+```
+
+This saves frames as `frame_0000.png`, `frame_0001.png`, etc. in the output directory.
+
+#### Option 2: Save as MP4 Video
+
+```bash
+python scripts/inference.py \
+    --prompt path/to/prompt_image.png \
+    --actions "0,1,2,3,4,5,6,7" \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
+    --output generated_video.mp4 \
+    --num_frames 16 \
+    --device cuda
+```
+
+#### Extract Prompt Frame from Dataset
+
+To extract a frame from your training dataset to use as a prompt:
+
+```bash
+python scripts/extract_prompt_frame.py \
+    --data_dir data \
+    --frame_idx 0 \
+    --output pong_prompt.png
+```
+
+#### Test Generation Pipeline
+
+To test the complete generation pipeline:
+
+```bash
+python scripts/test_generation.py
 ```
 
 ## Data Format
@@ -104,7 +146,7 @@ Memory-efficient transformer with factored spatial and temporal attention:
 ST-ViViT implementation:
 - Encoder: 6 layers, d_model=384, patch_size=4
 - Decoder: 10 layers, d_model=512, patch_size=4
-- Codebook: 1024 codes, dim=32
+- Codebook: 512 codes, dim=32 (scaled down from 1024)
 
 ### LAM
 Latent Action Model:
@@ -114,8 +156,8 @@ Latent Action Model:
 
 ### Dynamics Model
 MaskGIT-based dynamics predictor:
-- 12 layers, d_model=768, num_heads=12, k/q_size=128
-- Token embeddings: 1024 vocab size
+- 8 layers, d_model=640, num_heads=8, k/q_size=256 (scaled down for memory)
+- Token embeddings: 512 vocab size (must match tokenizer codebook)
 - Action embeddings: 8 actions
 - Inference: 25 MaskGIT steps, temperature=2.0
 

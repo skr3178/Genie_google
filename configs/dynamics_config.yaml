@@ -5,27 +5,27 @@ model:
   name: "dynamics"
   
   architecture:
-    num_layers: 12
-    d_model: 768
-    num_heads: 12
-    k_q_size: 128
-    dim_feedforward: 3072  # 4 * d_model
+    num_layers: 8  # Balanced: reduced from 12 for memory, but more than 6 for better capacity
+    d_model: 640  # Balanced: between 512 (too small) and 768 (original)
+    num_heads: 8  # Balanced: 8 heads
+    k_q_size: 256  # Must be divisible by num_heads (8 * 32 = 256, head_dim = 32)
+    dim_feedforward: 2560  # 4 * d_model
     dropout: 0.1
     activation: "gelu"
     qk_normalization: true
   
   token_embedding:
-    vocab_size: 1024  # From video tokenizer
-    embedding_dim: 768
+    vocab_size: 512  # Must match tokenizer codebook num_codes (was 1024, but tokenizer uses 512)
+    embedding_dim: 640  # Must match d_model
   
   action_embedding:
     num_actions: 8
-    embedding_dim: 768
+    embedding_dim: 640  # Must match d_model
 
 data:
-  sequence_length: 16
-  batch_size: 4
-  num_workers: 4
+  sequence_length: 12  # Balanced: reduced from 16 for memory, but more than 8 for better temporal modeling
+  batch_size: 1  # Reduced for memory (use --batch_size to override)
+  num_workers: 0  # Reduced for memory efficiency
 
 training:
   max_lr: 3.0e-5
