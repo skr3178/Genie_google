@@ -1,0 +1,92 @@
+{
+  "evaluation_info": {
+    "checkpoint": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/checkpoint_step_1707.pt",
+    "dataset": "data/pong_frames.h5",
+    "training_step": 1707,
+    "evaluation_date": "2025-01-01",
+    "num_samples": 5
+  },
+  "model_config": {
+    "encoder": {
+      "num_layers": 6,
+      "d_model": 384,
+      "num_heads": 6,
+      "k_q_size": 60
+    },
+    "decoder": {
+      "num_layers": 8,
+      "d_model": 384,
+      "num_heads": 6,
+      "k_q_size": 60
+    },
+    "codebook": {
+      "num_codes": 512,
+      "latent_dim": 32,
+      "commitment_cost": 0.25
+    },
+    "patch_size": 4,
+    "sequence_length": 8,
+    "resolution": [128, 72, 3]
+  },
+  "metrics": {
+    "psnr": {
+      "mean": 34.90,
+      "std": 3.48,
+      "min": 33.02,
+      "max": 41.85,
+      "unit": "dB"
+    },
+    "mse": {
+      "mean": 0.000401,
+      "std": 0.000169,
+      "unit": "normalized_pixel_error"
+    }
+  },
+  "per_sample_results": [
+    {
+      "sample_id": 1,
+      "psnr": 33.02,
+      "mse": 0.000501,
+      "frame_range": "0-8"
+    },
+    {
+      "sample_id": 2,
+      "psnr": 33.45,
+      "mse": 0.000454,
+      "frame_range": "27006-27014"
+    },
+    {
+      "sample_id": 3,
+      "psnr": 33.05,
+      "mse": 0.000497,
+      "frame_range": "54012-54020"
+    },
+    {
+      "sample_id": 4,
+      "psnr": 33.14,
+      "mse": 0.000490,
+      "frame_range": "81018-81026"
+    },
+    {
+      "sample_id": 5,
+      "psnr": 41.85,
+      "mse": 0.000065,
+      "frame_range": "108025-108033"
+    }
+  ],
+  "vq_metrics": {
+    "commitment_loss_range": [0.000754, 0.000977],
+    "codebook_loss_range": [0.003019, 0.003907],
+    "interpretation": "Both losses are in reasonable ranges, indicating proper VQ training"
+  },
+  "conclusion": {
+    "overall_quality": "good",
+    "reconstruction_quality": "34.90 dB average PSNR indicates good reconstruction quality",
+    "training_status": "Model is learning well and can be used for downstream tasks",
+    "recommendations": [
+      "Continue training to improve reconstruction quality",
+      "Evaluate on different datasets to check generalization",
+      "Ready for LAM and Dynamics model training"
+    ]
+  }
+}

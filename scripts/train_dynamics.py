@@ -2,9 +2,14 @@
 
 import argparse
 import torch
+import gc
+import os
 from torch.utils.data import DataLoader
 from pathlib import Path
 import sys
+
+# Force unbuffered output to prevent "stuck" appearance
+os.environ['PYTHONUNBUFFERED'] = '1'
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -17,6 +22,15 @@ from src.training import Trainer
 from src.utils.config import load_config
 
 
+def clear_gpu_memory():
+    """Aggressively clear GPU memory"""
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+
 def create_dynamics_dataset(dataset, tokenizer, lam, sequence_length, device):
     """Create dataset that yields (tokens, actions, target_tokens)"""
     class DynamicsDataset:
@@ -26,11 +40,15 @@ def create_dynamics_dataset(dataset, tokenizer, lam, sequence_length, device):
             self.lam = lam
             self.sequence_length = sequence_length
             self.device = device
+            self.access_count = 0
+            self.cleanup_interval = 10  # Clear cache every N accesses
         
         def __len__(self):
             return len(self.base_dataset)
         
         def __getitem__(self, idx):
+            self.access_count += 1
+            
             frames = self.base_dataset[idx].to(self.device)  # (T, C, H, W)
             
             # Tokenize frames
@@ -46,7 +64,7 @@ def create_dynamics_dataset(dataset, tokenizer, lam, sequence_length, device):
             with torch.no_grad():
                 _, actions, _ = self.lam(past_frames, next_frame)  # (1, T-1, H_patches, W_patches)
             actions = actions.squeeze(0)  # (T-1, H_patches, W_patches)
-            del past_frames, next_frame  # Free memory
+            del past_frames, next_frame, frames  # Free memory
             
             # Keep full spatial action map (as per paper: additive embeddings use spatial actions)
             # Each spatial position has its own action embedding added to corresponding token
@@ -56,6 +74,11 @@ def create_dynamics_dataset(dataset, tokenizer, lam, sequence_length, device):
             target_tokens = tokens[1:]  # (T-1, H_patches, W_patches)
             del tokens  # Free memory
             
+            # Periodic memory cleanup during data loading
+            if self.access_count % self.cleanup_interval == 0:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            
             # Keep everything on GPU - pin_memory will be disabled for GPU tensors
             return input_tokens, actions, target_tokens
     
@@ -63,6 +86,14 @@ def create_dynamics_dataset(dataset, tokenizer, lam, sequence_length, device):
 
 
 def main():
+    # Immediate output to confirm script started
+    print("="*70, flush=True)
+    print("Dynamics Model Training Script Started", flush=True)
+    print(f"Time: {__import__('datetime').datetime.now()}", flush=True)
+    print("="*70, flush=True)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
     parser = argparse.ArgumentParser(description="Train Dynamics Model")
     parser.add_argument("--config", type=str, default="configs/dynamics_config.yaml", help="Config file path")
     parser.add_argument("--data_dir", type=str, default="data", help="Data directory")
@@ -73,6 +104,9 @@ def main():
     parser.add_argument("--max_steps", type=int, default=None, help="Maximum training steps (overrides config)")
     args = parser.parse_args()
     
+    print(f"Arguments parsed successfully", flush=True)
+    sys.stdout.flush()
+    
     # Load config
     config = load_config(args.config)
     device = torch.device(args.device)
@@ -81,6 +115,13 @@ def main():
     if args.max_steps is not None:
         config['training']['max_steps'] = args.max_steps
         print(f"Overriding max_steps to {args.max_steps}")
+    
+    # Enable aggressive memory management for dynamics training
+    # (dynamics uses 3 models: tokenizer, LAM, and dynamics model)
+    config['training']['memory_offload_interval'] = 50  # More frequent offloading
+    config['training']['aggressive_cleanup_interval'] = 10  # More frequent cleanup
+    config['training']['memory_threshold_gb'] = 7.0  # Lower threshold for earlier cleanup
+    print("Enabled aggressive memory management for dynamics training")
     
     # Load tokenizer
     print(f"Loading tokenizer from {args.tokenizer_path}...")
@@ -127,6 +168,11 @@ def main():
     
     lam = lam.to(device).eval()
     print(f"  LAM codebook size: {lam_config['model']['codebook']['num_codes']}")
+    
+    # Clear GPU memory after loading models
+    print("Clearing GPU memory after model loading...")
+    del tokenizer_checkpoint, lam_checkpoint
+    clear_gpu_memory()
     
     # Create dataset
     transform = VideoTransform(
@@ -189,8 +235,35 @@ def main():
         device=args.device,
     )
     
+    # Print training info
+    print("\n" + "="*70)
+    print("Starting Dynamics Model Training")
+    print("="*70)
+    print(f"Max steps: {config['training']['max_steps']}")
+    print(f"Save every: {config['training'].get('save_every', 500)} steps")
+    print(f"Batch size: {config['data']['batch_size']}")
+    print(f"Sequence length: {config['data']['sequence_length']}")
+    print("="*70 + "\n")
+    sys.stdout.flush()
+    
     # Train
     trainer.train(max_steps=config['training']['max_steps'])
+    
+    # Save final checkpoint with standard name
+    checkpoint_dir = Path(config.get('output', {}).get('checkpoint_dir', 'checkpoints/dynamics'))
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    final_checkpoint_path = checkpoint_dir / "checkpoint.pth"
+    
+    checkpoint = {
+        'model_state_dict': trainer.model.state_dict(),
+        'optimizer_state_dict': trainer.optimizer.state_dict(),
+        'scheduler_state_dict': trainer.scheduler.state_dict(),
+        'global_step': trainer.global_step,
+        'epoch': trainer.epoch,
+        'config': config,
+    }
+    torch.save(checkpoint, final_checkpoint_path)
+    print(f"Saved final checkpoint to {final_checkpoint_path}")
     
     print("Training completed!")
 

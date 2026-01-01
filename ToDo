@@ -1,4 +1,7 @@
 - Error accumulation in training models
 - Genie uses much smaller context window - 16 - how to reduce it?
+- compare loss term and comparison with the paper
+- Metrics: 1.  Frechet Video Distance(FVD) 2. peak signal-to-noise ratio (PSNR)
+- Tokenizer is working properly - checked
 
 

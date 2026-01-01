@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 import math
 from typing import Optional, Tuple
 from .embeddings import CombinedPositionalEmbedding
@@ -305,6 +306,7 @@ class STTransformer(nn.Module):
         max_h: int = 128,
         max_w: int = 128,
         max_t: int = 1000,
+        use_gradient_checkpointing: bool = False,
     ):
         """
         Args:
@@ -320,9 +322,11 @@ class STTransformer(nn.Module):
             max_h: Maximum height for positional embeddings
             max_w: Maximum width for positional embeddings
             max_t: Maximum sequence length for positional embeddings
+            use_gradient_checkpointing: Whether to use gradient checkpointing to save memory
         """
         super().__init__()
         self.d_model = d_model
+        self.use_gradient_checkpointing = use_gradient_checkpointing
         
         # Positional embeddings
         self.pos_embedding = CombinedPositionalEmbedding(
@@ -347,6 +351,14 @@ class STTransformer(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
     
+    def gradient_checkpointing_enable(self):
+        """Enable gradient checkpointing"""
+        self.use_gradient_checkpointing = True
+    
+    def gradient_checkpointing_disable(self):
+        """Disable gradient checkpointing"""
+        self.use_gradient_checkpointing = False
+    
     def forward(
         self,
         x: torch.Tensor,
@@ -367,9 +379,15 @@ class STTransformer(nn.Module):
         pos_emb = pos_emb.unsqueeze(0).expand(B, -1, -1, -1, -1)
         x = x + self.dropout(pos_emb)
         
-        # Apply transformer blocks
-        for layer in self.layers:
-            x = layer(x, mask)
+        # Apply transformer blocks with optional gradient checkpointing
+        if self.use_gradient_checkpointing and self.training:
+            # Use gradient checkpointing to save memory
+            for layer in self.layers:
+                x = checkpoint(layer, x, mask, use_reentrant=False)
+        else:
+            # Normal forward pass
+            for layer in self.layers:
+                x = layer(x, mask)
         
         # Final layer norm
         x = self.norm(x)

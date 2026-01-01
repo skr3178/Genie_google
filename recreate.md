@@ -575,3 +575,230 @@ Fixed dimension mismatch: Added projection layers (pre_quantizer_proj and post_q
 Fixed width mismatch: Added output_padding=(0, 8) to ConvTranspose2d to handle non-divisible width (72 pixels)
 Fixed autocast issue: Changed from binary_cross_entropy + sigmoid to binary_cross_entropy_with_logits (removed sigmoid from model output)
 Removed all debug print statements
+
+
+###
+
+Impact Analysis
+Checkpoints — No negative impact
+Checkpoints are compatible: The model handles variable sequence lengths dynamically (processes (B, T, C, H, W) where T can vary). No fixed-size buffers are tied to sequence length.
+Loading checkpoints: You can load a checkpoint trained with sequence_length=8 and continue training with sequence_length=16 (or vice versa) without issues.
+Model weights: Unchanged — only training configuration changed.
+Performance — Minor trade-offs
+Cache clearing frequency (every step):
+Overhead: ~0.1–0.5 ms per step (negligible)
+Benefit: Prevents memory fragmentation, allowing longer training runs
+Net impact: Positive overall
+Sequence length reduction (16 → 8):
+Memory: ~50% reduction per batch
+Speed: ~50% faster per step (less computation)
+Quality: Model sees less temporal context (8 frames vs 16)
+Recommendation: If memory allows, try increasing back to 12 or 16 frames for better learning
+Periodic memory resets:
+Overhead: Small sync cost every 25/100 steps
+Benefit: Prevents fragmentation buildup
+Net impact: Positive
+
+
+
+
+## Inference Command
+
+**Option 1: Save as MP4 Video**
+```bash
+conda run -n robot_wm python scripts/inference.py \
+    --prompt pong_prompt.png \
+    --actions "0,1,2,3,4,5,6,7" \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
+    --output generated_video.mp4 \
+    --num_frames 16 \
+    --device cuda
+```
+
+**Option 2: Save as Individual Frames (Recommended for viewing)**
+```bash
+conda run -n robot_wm python scripts/inference.py \
+    --prompt pong_prompt.png \
+    --actions "0,1,2,3,4,5,6,7" \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
+    --output generated_frames \
+    --save_frames \
+    --num_frames 16 \
+    --device cuda
+```
+
+**Note**: LAM checkpoint is NOT needed for inference (only tokenizer and dynamics model are used).
+
+## Training Commands
+
+### Step 1: Train Tokenizer
+```bash
+conda run -n robot_wm python scripts/train_tokenizer.py \
+    --config configs/tokenizer_config.yaml \
+    --data_dir data \
+    --dataset pong \
+    --device cuda \
+    --batch_size 1 \
+    --max_steps 1000
+```
+
+**Alternative with memory optimization (PYTORCH_CUDA_ALLOC_CONF):**
+```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True conda run -n robot_wm python scripts/train_tokenizer.py \
+    --config configs/tokenizer_config.yaml \
+    --data_dir data \
+    --dataset pong \
+    --device cuda \
+    --batch_size 1 \
+    --max_steps 1000 \
+    --save_every 1000
+```
+
+**Minimal version (uses defaults for config, data_dir, device):**
+```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True conda run -n robot_wm python scripts/train_tokenizer.py \
+    --dataset pong \
+    --max_steps 5000 \
+    --save_every 1000 \
+    --batch_size 1
+```
+
+### Step 2: Train LAM
+```bash
+conda run -n robot_wm python scripts/train_lam.py \
+    --config configs/lam_config.yaml \
+    --data_dir data \
+    --dataset pong \
+    --device cuda \
+    --max_steps 1000
+```
+
+```
+python scripts/train_lam.py --dataset pong --max_steps 1000 --save_every 1000
+```
+
+### Step 3: Train Dynamics Model
+```bash
+conda run -n robot_wm python scripts/train_dynamics.py \
+    --config configs/dynamics_config.yaml \
+    --data_dir data \
+    --dataset pong \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
+    --lam_path checkpoints/lam/checkpoint_step_1000.pt \
+    --device cuda \
+    --max_steps 1000
+```
+
+
+Δ𝑡PSNR is not used for training loss computation. It's an evaluation metric only.
+Training losses used:
+Video Tokenizer:
+Reconstruction loss (MSE or BCE)
+VQ losses (commitment + codebook)
+LAM:
+Reconstruction loss (sigmoid cross-entropy on pixels)
+VQ losses (commitment + codebook)
+Dynamics Model:
+MaskGIT loss (cross-entropy on masked tokens)
+Δ𝑡PSNR and FVD are evaluation metrics:
+Computed after training to assess model quality
+Not differentiable in a way that's practical for training
+Require full video generation, which is expensive during training
+Used to compare models and measure:
+FVD: video fidelity (quality)
+Δ𝑡PSNR: controllability (action impact)
+Training uses pixel-level and token-level losses. FVD and Δ𝑡PSNR are computed on generated videos for evaluation, not during the training loop.
+
+
+Current Model Sizes
+1. Video Tokenizer (ST-ViViT)
+Encoder: 6 layers, d_model=384, num_heads=6
+Decoder: 8 layers, d_model=384, num_heads=6
+Codebook: 512 codes
+Estimated: ~50-70M parameters
+2. Latent Action Model (LAM)
+Encoder: 8 layers, d_model=512, num_heads=8
+Decoder: 8 layers, d_model=512, num_heads=8
+Codebook: 8 codes
+Estimated: ~40-60M parameters
+3. Dynamics Model
+8 layers, d_model=640, num_heads=8
+vocab_size=512, num_actions=8
+Estimated: ~30-50M parameters
+Total
+Combined: ~120-180M parameters (vs 10.7B in the original paper)
+
+![Scaling](Scaling_results.png)
+
+## In order to train tokenizer for longer, suggestions/recommendations are to make the following changes: 
+
+Summary of Changes
+Parameter	Before	After	Memory Savings
+Encoder layers	6	4	~33%
+Decoder layers	8	6	~25%
+d_model	384	256	~55%
+dim_feedforward	1536	1024	~33%
+sequence_length	8	6	~25%
+memory_threshold_gb	8.0	7.0	Earlier cleanup
+
+
+![summary_changes](image_2.png)
+
+## Loss calculations
+
+1. Train_tokenizer
+
+# From trainer.py train_step()
+output = self.model(batch)  # Returns (pred, tokens, vq_loss_dict)
+pred, tokens, vq_loss_dict = output
+vq_losses = vq_loss(vq_loss_dict)
+loss = reconstruction_loss(pred, batch) + vq_losses['vq_loss']
+
+2. Train Latent action model (LAM)
+
+# From trainer.py train_step()
+past_frames, next_frame = batch
+pred, actions, vq_loss_dict = self.model(past_frames, next_frame)
+loss_dict = lam_loss(pred, next_frame, vq_loss_dict)
+loss = loss_dict['total_loss']
+
+3. Train Dynamics Model loss
+
+# From trainer.py train_step()
+tokens, actions, targets = batch
+mask = self.model.generate_mask(
+    tokens.shape,
+    self.config.get('training', {}).get('mask_prob', 0.5),
+    self.device,
+)
+logits = self.model(tokens, actions, mask)
+loss_dict = maskgit_loss(logits, targets, mask)
+loss = loss_dict['maskgit_loss']
+
+
+## final working script
+
+# First, activate conda in your current shell
+source ~/miniconda3/etc/profile.d/conda.sh  # or anaconda3 if you use that
+conda activate robot_wm
+
+# Then run with nohup
+nohup python -u scripts/train_dynamics.py \
+    --lam_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/checkpoint_step_5000.pt \
+    --tokenizer_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/checkpoint_step_2319.pt \
+    --data_dir data \
+    --dataset pong \
+    --max_steps 2000 > train_dynamics.log 2>&1 &
+
+
+## running inference
+
+cd /media/skr/storage/robot_world/Genie/Genie_SKR && conda run -n robot_wm python scripts/generate_frames.py --dynamics_dir /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/dynamics --checkpoint_step 2000 --output generated_frames --num_frames 16
+
+
+
+## Updated Output is slightly better now
+
+<video controls src="generated_frames/run_20260101_155036_step_12000/generated_video.mp4" title="Title"></video>

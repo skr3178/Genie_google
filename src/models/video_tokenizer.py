@@ -68,6 +68,7 @@ class VideoTokenizerEncoder(nn.Module):
         patch_size: int = 4,
         dropout: float = 0.1,
         activation: str = "gelu",
+        use_gradient_checkpointing: bool = False,
     ):
         super().__init__()
         self.patch_embedding = PatchEmbedding(patch_size, in_channels=3, d_model=d_model)
@@ -82,7 +83,16 @@ class VideoTokenizerEncoder(nn.Module):
             activation=activation,
             causal=False,  # Encoder doesn't need causal masking
             qk_normalization=False,
+            use_gradient_checkpointing=use_gradient_checkpointing,
         )
+    
+    def gradient_checkpointing_enable(self):
+        """Enable gradient checkpointing"""
+        self.transformer.gradient_checkpointing_enable()
+    
+    def gradient_checkpointing_disable(self):
+        """Disable gradient checkpointing"""
+        self.transformer.gradient_checkpointing_disable()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -114,6 +124,7 @@ class VideoTokenizerDecoder(nn.Module):
         patch_size: int = 4,
         dropout: float = 0.1,
         activation: str = "gelu",
+        use_gradient_checkpointing: bool = False,
     ):
         super().__init__()
         self.patch_size = patch_size
@@ -129,6 +140,7 @@ class VideoTokenizerDecoder(nn.Module):
             activation=activation,
             causal=False,  # Decoder doesn't need causal masking for reconstruction
             qk_normalization=False,
+            use_gradient_checkpointing=use_gradient_checkpointing,
         )
         
         # Output projection to reconstruct frames
@@ -138,6 +150,14 @@ class VideoTokenizerDecoder(nn.Module):
             kernel_size=patch_size,
             stride=patch_size,
         )
+    
+    def gradient_checkpointing_enable(self):
+        """Enable gradient checkpointing"""
+        self.transformer.gradient_checkpointing_enable()
+    
+    def gradient_checkpointing_disable(self):
+        """Disable gradient checkpointing"""
+        self.transformer.gradient_checkpointing_disable()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -198,6 +218,7 @@ class VideoTokenizer(nn.Module):
             patch_size=patch_size,
             dropout=encoder_config.get('dropout', 0.1),
             activation=encoder_config.get('activation', 'gelu'),
+            use_gradient_checkpointing=False,  # Will be enabled by trainer if needed
         )
         
         # Projection from encoder d_model to latent_dim for quantization
@@ -231,6 +252,7 @@ class VideoTokenizer(nn.Module):
             patch_size=patch_size,
             dropout=decoder_config.get('dropout', 0.1),
             activation=decoder_config.get('activation', 'gelu'),
+            use_gradient_checkpointing=False,  # Will be enabled by trainer if needed
         )
     
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
@@ -265,6 +287,9 @@ class VideoTokenizer(nn.Module):
         # Apply sigmoid to output (as per paper)
         reconstructed = torch.sigmoid(reconstructed)
         
+        # Explicitly delete intermediate tensors to free memory
+        del encoded, encoded_flat, latent_flat, quantized_latent, quantized
+        
         return reconstructed, tokens, vq_loss_dict
     
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -290,4 +315,18 @@ class VideoTokenizer(nn.Module):
         # Decode
         reconstructed = self.decoder(quantized)
         reconstructed = torch.sigmoid(reconstructed)
+        
+        # Explicitly delete intermediate tensors
+        del quantized_latent, quantized
+        
         return reconstructed
+    
+    def gradient_checkpointing_enable(self):
+        """Enable gradient checkpointing for encoder and decoder"""
+        self.encoder.gradient_checkpointing_enable()
+        self.decoder.gradient_checkpointing_enable()
+    
+    def gradient_checkpointing_disable(self):
+        """Disable gradient checkpointing for encoder and decoder"""
+        self.encoder.gradient_checkpointing_disable()
+        self.decoder.gradient_checkpointing_disable()

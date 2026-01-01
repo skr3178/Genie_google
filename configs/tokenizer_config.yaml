@@ -59,6 +59,11 @@ training:
   max_grad_norm: 1.0
   save_every: 5000
   eval_every: 1000
+  
+  # Memory management (tuned for 11.6GB GPU)
+  memory_offload_interval: 100  # More frequent memory offloading
+  aggressive_cleanup_interval: 25  # More frequent aggressive cleanup
+  memory_threshold_gb: 8.0  # Trigger checkpoint/cleanup at 8GB (was 8.5GB)
 
 output:
   checkpoint_dir: "checkpoints/tokenizer"

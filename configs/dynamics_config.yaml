@@ -46,8 +46,13 @@ training:
   mixed_precision: true
   gradient_checkpointing: true
   max_grad_norm: 1.0
-  save_every: 2000
-  eval_every: 500
+  save_every: 500  # Save more frequently (was 2000)
+  eval_every: 250
+  
+  # Memory management (dynamics uses 3 models, needs aggressive cleanup)
+  memory_offload_interval: 50
+  aggressive_cleanup_interval: 10
+  memory_threshold_gb: 7.0
 
 inference:
   maskgit_steps: 25

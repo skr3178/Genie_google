@@ -1,0 +1,21 @@
+Tokenizer Evaluation Summary
+======================================================================
+Tokenizer checkpoint: /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/checkpoint_step_1707.pt
+Dataset: data/pong_frames.h5
+Training step: 1707
+
+Number of samples: 5
+Average PSNR: 34.90 dB
+Std PSNR: 3.48 dB
+Min PSNR: 33.02 dB
+Max PSNR: 41.85 dB
+
+Average MSE: 0.000401
+Std MSE: 0.000169
+
+Per-sample PSNR:
+  Sample 1: 33.02 dB
+  Sample 2: 33.45 dB
+  Sample 3: 33.05 dB
+  Sample 4: 33.14 dB
+  Sample 5: 41.85 dB

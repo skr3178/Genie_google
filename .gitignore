@@ -17,6 +17,7 @@ __pycache__/
 
 # Model checkpoints and weights
 checkpoints/
+**/checkpoints/
 **/checkpoint.*
 **/*checkpoint*.pth
 **/*checkpoint*.pt
@@ -49,6 +50,8 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+.cursor/
+*.vsix
 *.swp
 *.swo
 *~
@@ -68,6 +71,12 @@ examples/*_result.mp4
 *.jpg
 *.png
 *.zip
+
+# Generated outputs
+generated_frames/
+
+# Unused dependencies
+Metrics/FVD/stylegan-v/
 
 # Large PDF files
 *.pdf
