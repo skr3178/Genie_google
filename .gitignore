@@ -70,6 +70,8 @@ debug.py
 examples/*_result.mp4
 *.jpg
 *.png
+# Allow loss curve images for README
+!*_loss_curve.png
 *.zip
 
 # Generated outputs
