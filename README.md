@@ -1,6 +1,74 @@
 # Genie Training Pipeline
 
-This document describes the training commands used to train each component of the Genie world model.
+Implementation of the Genie world model - a generative video model that learns latent actions from unlabeled video data.
+
+---
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/skr3178/Genie_google.git
+cd Genie_google
+```
+
+### 2. Create Environment
+
+**Option A: Using Conda (recommended)**
+
+```bash
+conda env create -f environment.yml
+conda activate genie
+```
+
+**Option B: Using pip**
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Download Dataset
+
+The datasets are hosted on HuggingFace at `AlmondGod/tinyworlds`.
+
+**Download Pong dataset (recommended for quick testing, ~14MB):**
+
+```bash
+python download_dataset.py datasets --pattern "*pong*.h5" --out data
+```
+
+**Download all datasets:**
+
+```bash
+python download_dataset.py datasets --out data
+```
+
+**Available datasets:**
+
+| Dataset | Size | Description |
+|---------|------|-------------|
+| `pong_frames.h5` | ~14 MB | Smallest, good for quick testing |
+| `pole_position_frames.h5` | ~17 MB | Small racing game |
+| `picodoom_frames.h5` | ~60K frames | Doom-style game |
+| `sonic_frames.h5` | ~41K frames | Sonic gameplay |
+| `zelda_frames.h5` | ~72K frames | Zelda gameplay |
+| `coinrun_frames.h5` | 10M frames | Largest, for full training |
+
+### 4. Verify Installation
+
+```bash
+python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+python -c "import h5py; f = h5py.File('data/pong_frames.h5', 'r'); print(f'Dataset keys: {list(f.keys())}')"
+```
+
+---
+
+# Training Pipeline
+
+This section describes the training commands used to train each component of the Genie world model.
 
 ---
 
@@ -11,7 +79,7 @@ This document describes the training commands used to train each component of th
 **Config:** `configs/tokenizer_config.yaml`
 
 ```bash
-conda run -n robot_wm python -u scripts/train_tokenizer.py \
+python scripts/train_tokenizer.py \
     --config configs/tokenizer_config.yaml \
     --data_dir data \
     --dataset pong \
@@ -34,7 +102,7 @@ conda run -n robot_wm python -u scripts/train_tokenizer.py \
 **Config:** `configs/lam_config_paper.yaml`
 
 ```bash
-conda run -n robot_wm python -u scripts/train_lam.py \
+python scripts/train_lam.py \
     --config configs/lam_config_paper.yaml \
     --data_dir data \
     --dataset pong \
@@ -56,11 +124,11 @@ conda run -n robot_wm python -u scripts/train_lam.py \
 **LAM Config:** `configs/lam_config_paper.yaml`
 
 ```bash
-conda run -n robot_wm python -u scripts/train_dynamics.py \
+python scripts/train_dynamics.py \
     --config configs/dynamics_config_3actions.yaml \
     --lam_config configs/lam_config_paper.yaml \
-    --tokenizer_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/run_20260102_104853/checkpoint_step_2288.pt \
-    --lam_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_15000.pt \
+    --tokenizer_path checkpoints/tokenizer/<run_id>/checkpoint_step_2288.pt \
+    --lam_path checkpoints/lam/<run_id>/checkpoint_step_15000.pt \
     --data_dir data \
     --dataset pong \
     --device cuda \
