@@ -2,6 +2,26 @@
 
 Implementation of the Genie world model - a generative video model that learns latent actions from unlabeled video data.
 
+## Project Structure
+
+```
+├── configs/                 # Model configuration files
+├── src/                     # Core model implementations
+│   ├── models/              # Video tokenizer, LAM, dynamics models
+│   ├── training/            # Training loops and losses
+│   └── inference/           # Generation pipeline
+├── scripts/                 # Training and evaluation scripts
+├── data/                    # Dataset files (downloaded separately)
+├── checkpoints/             # Model checkpoints (downloaded separately)
+└── evaluations/             # Evaluation results and videos
+```
+
+## Requirements
+
+- **GPU**: NVIDIA GPU with 12GB+ VRAM (tested on RTX 3090)
+- **Python**: 3.10+
+- **PyTorch**: 2.1+ with CUDA support
+
 ---
 
 ## Getting Started
@@ -197,8 +217,8 @@ python scripts/train_lam.py \
 python scripts/train_dynamics.py \
     --config configs/dynamics_config_3actions.yaml \
     --lam_config configs/lam_config_paper.yaml \
-    --tokenizer_path checkpoints/tokenizer/<run_id>/checkpoint_step_2288.pt \
-    --lam_path checkpoints/lam/<run_id>/checkpoint_step_15000.pt \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_2288.pt \
+    --lam_path checkpoints/lam/checkpoint_step_15000.pt \
     --data_dir data \
     --dataset pong \
     --device cuda \
@@ -209,6 +229,46 @@ python scripts/train_dynamics.py \
 - Uses frozen tokenizer and LAM from previous stages
 - MaskGIT-style training for next-token prediction
 - 8 transformer layers, 640 d_model
+
+---
+
+# Inference & Evaluation
+
+## Generate Videos with Dynamics Model
+
+Use the trained models to generate action-conditioned videos:
+
+```bash
+python scripts/evaluate_dynamics.py \
+    --dynamics_path checkpoints/dynamics/checkpoint_step_7000.pt \
+    --tokenizer_path checkpoints/tokenizer/checkpoint_step_2288.pt \
+    --lam_path checkpoints/lam/checkpoint_step_15000.pt \
+    --lam_config configs/lam_config_paper.yaml \
+    --data_path data/pong_frames.h5 \
+    --num_samples 5 \
+    --output_dir evaluations/dynamics \
+    --device cuda
+```
+
+## Evaluate Tokenizer Reconstruction
+
+```bash
+python scripts/create_tokenizer_comparison.py \
+    --checkpoint checkpoints/tokenizer/checkpoint_step_2288.pt \
+    --data_path data/pong_frames.h5 \
+    --output_dir evaluations/tokenizer \
+    --num_sequences 3
+```
+
+## Evaluate LAM Predictions
+
+```bash
+python scripts/evaluate_lam_visual.py \
+    --checkpoint checkpoints/lam/checkpoint_step_15000.pt \
+    --data_path data/pong_frames.h5 \
+    --num_samples 5 \
+    --output_dir evaluations/lam
+```
 
 ---
 
