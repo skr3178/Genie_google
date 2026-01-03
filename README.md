@@ -64,6 +64,76 @@ python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda
 python -c "import h5py; f = h5py.File('data/pong_frames.h5', 'r'); print(f'Dataset keys: {list(f.keys())}')"
 ```
 
+### 5. Download Pre-trained Checkpoints (Optional)
+
+Pre-trained model checkpoints are available on HuggingFace: [sangramrout/genie-pong](https://huggingface.co/sangramrout/genie-pong)
+
+| Model | Description | Size |
+|-------|-------------|------|
+| Video Tokenizer | ST-ViViT encoder/decoder with 512-code VQ codebook | ~454 MB |
+| Latent Action Model (LAM) | 20-layer transformer, 3-action discrete space | ~6.2 GB |
+| Dynamics Model | MaskGIT-style next-frame predictor | ~647 MB |
+
+**Download all checkpoints:**
+
+```bash
+# Create checkpoint directories
+mkdir -p checkpoints/tokenizer checkpoints/lam checkpoints/dynamics
+
+# Download using huggingface_hub
+python -c "
+from huggingface_hub import hf_hub_download
+
+# Download tokenizer
+hf_hub_download(
+    repo_id='sangramrout/genie-pong',
+    filename='checkpoints/tokenizer/checkpoint_step_2288.pt',
+    local_dir='.'
+)
+
+# Download LAM
+hf_hub_download(
+    repo_id='sangramrout/genie-pong',
+    filename='checkpoints/lam/checkpoint_step_15000.pt',
+    local_dir='.'
+)
+
+# Download dynamics
+hf_hub_download(
+    repo_id='sangramrout/genie-pong',
+    filename='checkpoints/dynamics/checkpoint_step_7000.pt',
+    local_dir='.'
+)
+
+print('All checkpoints downloaded successfully!')
+"
+```
+
+**Or download individually:**
+
+```python
+from huggingface_hub import hf_hub_download
+
+# Download just the tokenizer
+tokenizer_path = hf_hub_download(
+    repo_id="sangramrout/genie-pong",
+    filename="checkpoints/tokenizer/checkpoint_step_2288.pt",
+    local_dir="."
+)
+```
+
+After downloading, your checkpoint structure should look like:
+
+```
+checkpoints/
+├── tokenizer/
+│   └── checkpoint_step_2288.pt
+├── lam/
+│   └── checkpoint_step_15000.pt
+└── dynamics/
+    └── checkpoint_step_7000.pt
+```
+
 ---
 
 # Training Pipeline
