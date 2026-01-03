@@ -85,10 +85,8 @@ def main():
     # Train
     trainer.train(max_steps=config['training']['max_steps'])
     
-    # Save final checkpoint with standard name
-    checkpoint_dir = Path(config.get('output', {}).get('checkpoint_dir', 'checkpoints/tokenizer'))
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    final_checkpoint_path = checkpoint_dir / "checkpoint.pth"
+    # Save final checkpoint in the same unique run directory
+    final_checkpoint_path = trainer.checkpoint_dir / "checkpoint_final.pt"
     
     checkpoint = {
         'model_state_dict': trainer.model.state_dict(),

@@ -1,5 +1,6 @@
 # Dynamics Model Configuration
-# Scaled down for 16GB GPU
+# For use with LAM trained with 3 actions (up, down, do nothing)
+# Action embedding must match LAM codebook size (3 actions)
 
 model:
   name: "dynamics"
@@ -19,7 +20,7 @@ model:
     embedding_dim: 640  # Must match d_model
   
   action_embedding:
-    num_actions: 8
+    num_actions: 3  # Must match LAM codebook num_codes (3 actions: up, down, do nothing)
     embedding_dim: 640  # Must match d_model
 
 data:

@@ -10,6 +10,7 @@ import logging
 import sys
 from tqdm import tqdm
 import gc
+from datetime import datetime
 
 from ..utils.config import load_config
 from .optimizers import create_optimizer, create_scheduler
@@ -83,11 +84,21 @@ class Trainer:
         self.global_step = 0
         self.epoch = 0
         
-        # Checkpointing
-        self.checkpoint_dir = Path(self.config.get('output', {}).get('checkpoint_dir', 'checkpoints'))
+        # Checkpointing - create unique directory per run with timestamp
+        base_checkpoint_dir = Path(self.config.get('output', {}).get('checkpoint_dir', 'checkpoints'))
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.checkpoint_dir = base_checkpoint_dir / f"run_{timestamp}"
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.logger.info(f"Checkpoints will be saved to: {self.checkpoint_dir}")
         self.save_every = self.config.get('training', {}).get('save_every', 5000)
         self.eval_every = self.config.get('training', {}).get('eval_every', 1000)
+        
+        # Progress log file for monitoring
+        self.progress_log = self.checkpoint_dir / "training_progress.log"
+        with open(self.progress_log, 'w') as f:
+            f.write(f"Training started at {datetime.now()}\n")
+            f.write(f"Checkpoint directory: {self.checkpoint_dir}\n")
+            f.flush()
         
         # Memory management configuration
         self.memory_offload_interval = self.config.get('training', {}).get('memory_offload_interval', 100)  # More frequent offloading
@@ -380,11 +391,11 @@ class Trainer:
         """Main training loop"""
         max_steps = max_steps or self.config.get('training', {}).get('max_steps', 10000)
         
-        # Use stderr for tqdm (unbuffered) and disable buffering
+        # Use stdout for tqdm to ensure visibility
         pbar = tqdm(
             total=max_steps, 
             desc="Training",
-            file=sys.stderr,  # Use stderr (unbuffered by default)
+            file=sys.stdout,  # Use stdout for better visibility
             dynamic_ncols=True,
             mininterval=0.5,  # Update at least every 0.5 seconds
             maxinterval=1.0,  # Update at most every 1 second
@@ -394,6 +405,10 @@ class Trainer:
         print(f"Starting training for {max_steps} steps...", flush=True)
         sys.stdout.flush()
         sys.stderr.flush()
+        
+        # Track last print time to avoid too frequent output
+        last_print_step = 0
+        print_interval = 10  # Print every 10 steps
         
         while self.global_step < max_steps:
             for batch in self.train_loader:
@@ -406,21 +421,35 @@ class Trainer:
                     pbar.set_postfix(metrics)
                     pbar.refresh()  # Force refresh
                     
-                    # Periodic flush to ensure output appears
-                    if self.global_step % 10 == 0:
+                    # Explicit print every N steps for visibility
+                    if self.global_step - last_print_step >= print_interval or self.global_step == 1:
+                        loss_str = f"loss={metrics.get('loss', 0.0):.4f}" if 'loss' in metrics else ""
+                        progress_msg = f"Step {self.global_step}/{max_steps}: {loss_str}"
+                        print(progress_msg, flush=True)
                         sys.stdout.flush()
-                        sys.stderr.flush()
+                        # Also log to progress file
+                        with open(self.progress_log, 'a') as f:
+                            f.write(f"{datetime.now()}: {progress_msg}\n")
+                            f.flush()
+                        last_print_step = self.global_step
                     
                     # Evaluation
                     if self.val_loader and self.global_step % self.eval_every == 0:
                         val_metrics = self.evaluate()
                         self.logger.info(f"Step {self.global_step}: {val_metrics}")
-                        print(f"Step {self.global_step}: {val_metrics}", flush=True)
+                        print(f"Step {self.global_step}: EVAL {val_metrics}", flush=True)
+                        sys.stdout.flush()
                     
                     # Checkpointing
                     if self.global_step % self.save_every == 0:
                         self.save_checkpoint()
-                        print(f"Checkpoint saved at step {self.global_step}", flush=True)
+                        checkpoint_msg = f"CHECKPOINT SAVED at step {self.global_step}"
+                        print(checkpoint_msg, flush=True)
+                        sys.stdout.flush()
+                        # Log to progress file
+                        with open(self.progress_log, 'a') as f:
+                            f.write(f"{datetime.now()}: {checkpoint_msg}\n")
+                            f.flush()
                         
                 except torch.cuda.OutOfMemoryError as e:
                     self.logger.error(f"CUDA OOM at step {self.global_step}: {e}")

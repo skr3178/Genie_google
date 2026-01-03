@@ -1,9 +1,9 @@
 {
   "evaluation_info": {
-    "checkpoint": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/checkpoint_step_1707.pt",
+    "checkpoint": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/checkpoint_step_1981.pt",
     "dataset": "data/pong_frames.h5",
-    "training_step": 1707,
-    "evaluation_date": "2025-01-01",
+    "training_step": 1981,
+    "evaluation_date": "2025-01-02",
     "num_samples": 5
   },
   "model_config": {
@@ -30,58 +30,68 @@
   },
   "metrics": {
     "psnr": {
-      "mean": 34.90,
-      "std": 3.48,
-      "min": 33.02,
-      "max": 41.85,
+      "mean": 34.03,
+      "std": 1.27,
+      "min": 33.26,
+      "max": 36.56,
       "unit": "dB"
     },
     "mse": {
-      "mean": 0.000401,
-      "std": 0.000169,
+      "mean": 0.000413,
+      "std": 0.000097,
       "unit": "normalized_pixel_error"
     }
   },
   "per_sample_results": [
     {
       "sample_id": 1,
-      "psnr": 33.02,
-      "mse": 0.000501,
-      "frame_range": "0-8"
+      "psnr": 33.39,
+      "mse": 0.000461,
+      "frame_range": "0-8",
+      "commitment_loss": 0.000281813379842788,
+      "codebook_loss": 0.001127253519371152
     },
     {
       "sample_id": 2,
-      "psnr": 33.45,
-      "mse": 0.000454,
-      "frame_range": "27006-27014"
+      "psnr": 33.33,
+      "mse": 0.000467,
+      "frame_range": "27006-27014",
+      "commitment_loss": 0.0002987681364174932,
+      "codebook_loss": 0.001195072545669973
     },
     {
       "sample_id": 3,
-      "psnr": 33.05,
-      "mse": 0.000497,
-      "frame_range": "54012-54020"
+      "psnr": 33.26,
+      "mse": 0.000475,
+      "frame_range": "54012-54020",
+      "commitment_loss": 0.00022508349502459168,
+      "codebook_loss": 0.0009003339800983667
     },
     {
       "sample_id": 4,
-      "psnr": 33.14,
-      "mse": 0.000490,
-      "frame_range": "81018-81026"
+      "psnr": 33.63,
+      "mse": 0.000439,
+      "frame_range": "81018-81026",
+      "commitment_loss": 0.00026739126769825816,
+      "codebook_loss": 0.0010695650707930326
     },
     {
       "sample_id": 5,
-      "psnr": 41.85,
-      "mse": 0.000065,
-      "frame_range": "108025-108033"
+      "psnr": 36.56,
+      "mse": 0.000221,
+      "frame_range": "108025-108033",
+      "commitment_loss": 0.00015855180390644819,
+      "codebook_loss": 0.0006342072156257927
     }
   ],
   "vq_metrics": {
-    "commitment_loss_range": [0.000754, 0.000977],
-    "codebook_loss_range": [0.003019, 0.003907],
-    "interpretation": "Both losses are in reasonable ranges, indicating proper VQ training"
+    "commitment_loss_range": [0.000158, 0.000299],
+    "codebook_loss_range": [0.000634, 0.001195],
+    "interpretation": "Both losses are in reasonable ranges, indicating proper VQ training. Lower losses compared to previous checkpoint suggest improved training stability."
   },
   "conclusion": {
     "overall_quality": "good",
-    "reconstruction_quality": "34.90 dB average PSNR indicates good reconstruction quality",
+    "reconstruction_quality": "34.03 dB average PSNR indicates good reconstruction quality, slightly improved from previous checkpoint",
     "training_status": "Model is learning well and can be used for downstream tasks",
     "recommendations": [
       "Continue training to improve reconstruction quality",

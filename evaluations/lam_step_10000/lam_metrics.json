@@ -1,0 +1,8 @@
+{
+  "global_step": 10000,
+  "max_steps": 20000,
+  "perplexity": 7.282547807693481,
+  "num_codes": 8,
+  "perplexity_ratio": 0.9103184759616851,
+  "training_progress": 0.5
+}

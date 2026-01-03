@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda", help="Device to train on")
     parser.add_argument("--max_steps", type=int, default=None, help="Maximum training steps (overrides config)")
     parser.add_argument("--save_every", type=int, default=None, help="Save checkpoint every N steps (overrides config)")
+    parser.add_argument("--resume_from", type=str, default=None, help="Path to checkpoint to resume from")
     args = parser.parse_args()
     
     # Load config
@@ -96,13 +97,59 @@ def main():
         device=args.device,
     )
     
+    # Resume from checkpoint if provided
+    if args.resume_from:
+        print(f"Resuming training from checkpoint: {args.resume_from}")
+        checkpoint = torch.load(args.resume_from, map_location=args.device)
+        
+        # Load model state
+        if 'model_state_dict' in checkpoint:
+            trainer.model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            trainer.model.load_state_dict(checkpoint)
+        
+        # Load optimizer state
+        if 'optimizer_state_dict' in checkpoint:
+            trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        
+        # Load scheduler state
+        if 'scheduler_state_dict' in checkpoint:
+            trainer.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        
+        # Load training state
+        if 'global_step' in checkpoint:
+            trainer.global_step = checkpoint['global_step']
+            print(f"Resuming from step {trainer.global_step}")
+        
+        if 'epoch' in checkpoint:
+            trainer.epoch = checkpoint['epoch']
+        
+        # Use config from checkpoint if available (to preserve training settings)
+        if 'config' in checkpoint:
+            print("Using config from checkpoint")
+            checkpoint_config = checkpoint['config']
+            # Merge checkpoint config with current config (prefer checkpoint config)
+            config = checkpoint_config
+            # Update max_steps if overridden
+            if args.max_steps is not None:
+                config['training']['max_steps'] = args.max_steps
+            # Update trainer config
+            trainer.config = config
+        
+        # Update checkpoint directory to continue in the same run directory if possible
+        checkpoint_path = Path(args.resume_from)
+        if 'run_' in checkpoint_path.parent.name:
+            # Try to use the same run directory
+            trainer.checkpoint_dir = checkpoint_path.parent
+            print(f"Continuing in checkpoint directory: {trainer.checkpoint_dir}")
+        
+        print(f"Successfully loaded checkpoint from step {trainer.global_step}")
+    
     # Train
     trainer.train(max_steps=config['training']['max_steps'])
     
-    # Save final checkpoint with standard name
-    checkpoint_dir = Path(config.get('output', {}).get('checkpoint_dir', 'checkpoints/lam'))
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    final_checkpoint_path = checkpoint_dir / "checkpoint.pth"
+    # Save final checkpoint with standard name (in the same run directory)
+    final_checkpoint_path = trainer.checkpoint_dir / "checkpoint.pth"
     
     checkpoint = {
         'model_state_dict': trainer.model.state_dict(),

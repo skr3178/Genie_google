@@ -1,0 +1,72 @@
+# Video Tokenizer (ST-ViViT) Configuration - SMALL MODEL
+# Reduced size for longer training on limited GPU memory
+# Based on recommendations from recreate.md
+# Expected memory reduction: ~60-70%
+
+model:
+  name: "video_tokenizer"
+  
+  encoder:
+    num_layers: 4  # Reduced from 6 (~33% memory savings)
+    d_model: 256  # Reduced from 384 (~55% memory savings)
+    num_heads: 4  # Reduced from 6 (proportional to d_model)
+    k_q_size: 40  # Reduced from 60 (proportional to d_model)
+    dim_feedforward: 1024  # Reduced from 1536 (~33% memory savings, 4 * d_model)
+    dropout: 0.1
+    activation: "gelu"
+  
+  decoder:
+    num_layers: 6  # Reduced from 8 (~25% memory savings)
+    d_model: 256  # Reduced from 384 (~55% memory savings, matches encoder)
+    num_heads: 4  # Reduced from 6 (proportional to d_model)
+    k_q_size: 40  # Reduced from 60 (proportional to d_model, matches encoder)
+    dim_feedforward: 1024  # Reduced from 1536 (~33% memory savings, 4 * d_model)
+    dropout: 0.1
+    activation: "gelu"
+  
+  codebook:
+    num_codes: 256  # Reduced from 512 (~50% memory savings)
+    latent_dim: 32  # Keep same as paper
+    commitment_cost: 0.25
+    decay: 0.99
+    epsilon: 1e-5
+  
+  patch_size: 4
+
+data:
+  sequence_length: 6  # Reduced from 8 (~25% memory savings)
+  fps: 10
+  resolution: [128, 72, 3]  # [H, W, C] - keep same resolution
+  batch_size: 1  # Keep at 1 for memory efficiency
+  num_workers: 0  # Set to 0 for batch_size=1 to save memory
+
+training:
+  max_lr: 1.0e-4  # Keep same learning rate
+  min_lr: 1.0e-5  # Keep same minimum LR
+  beta1: 0.9
+  beta2: 0.9
+  weight_decay: 1.0e-4
+  warmup_steps: 500  # Keep same warmup
+  max_steps: 30000  # Can train for longer now with smaller model
+  lr_schedule: "cosine"
+  
+  # Loss weights
+  reconstruction_weight: 1.0
+  commitment_weight: 0.25
+  codebook_weight: 1.0
+  
+  # Training settings
+  mixed_precision: true
+  gradient_checkpointing: true  # Keep enabled for memory savings
+  max_grad_norm: 1.0
+  save_every: 5000
+  eval_every: 1000
+  
+  # Memory management (tuned for smaller GPU)
+  memory_offload_interval: 50  # More frequent offloading
+  aggressive_cleanup_interval: 10  # More frequent cleanup
+  memory_threshold_gb: 7.0  # Lower threshold for earlier cleanup
+
+output:
+  checkpoint_dir: "checkpoints/tokenizer_small"  # Separate checkpoint dir
+  log_dir: "logs/tokenizer_small"

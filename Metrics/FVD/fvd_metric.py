@@ -51,11 +51,16 @@ class FVDMetric:
         
         # Load I3D model
         if model_path is None:
-            # Try to find model in the directory
+            # Try to find model in the directory (check both locations)
             model_path = FVD_DIR / "pytorch_i3d_model" / "rgb_imagenet.pt"
             if not model_path.exists():
+                # Try models subdirectory
+                model_path = FVD_DIR / "pytorch_i3d_model" / "models" / "rgb_imagenet.pt"
+            if not model_path.exists():
                 raise FileNotFoundError(
-                    f"I3D model not found at {model_path}. "
+                    f"I3D model not found. Tried:\n"
+                    f"  - {FVD_DIR / 'pytorch_i3d_model' / 'rgb_imagenet.pt'}\n"
+                    f"  - {FVD_DIR / 'pytorch_i3d_model' / 'models' / 'rgb_imagenet.pt'}\n"
                     "Please download the model weights or specify model_path."
                 )
         

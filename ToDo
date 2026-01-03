@@ -4,4 +4,8 @@
 - Metrics: 1.  Frechet Video Distance(FVD) 2. peak signal-to-noise ratio (PSNR)
 - Tokenizer is working properly - checked
 
+- Since the Latent Action Model (LAM), is able to be run on with 176.2M params without calling OOM errors, it should be scaled up to with a much larger model and then we get more spread on Codebook utilization and action DIstribution balance
 
+- the recontruction is not working too well (/media/skr/storage/robot_world/Genie/Genie_SKR/evaluations/lam/visual_eval_step_10000.mp4)
+
+- 

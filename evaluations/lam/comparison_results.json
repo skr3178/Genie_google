@@ -1,0 +1,68 @@
+[
+  {
+    "checkpoint": "checkpoint_step_5000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_5000.pt",
+    "global_step": 5000,
+    "num_codes": 3,
+    "psnr_mean": 21.904395612080894,
+    "psnr_std": 0.15354319659381677,
+    "psnr_min": 21.558067321777344,
+    "psnr_max": 22.140609741210938,
+    "fvd": 198.82785170703258
+  },
+  {
+    "checkpoint": "checkpoint_step_10000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_10000.pt",
+    "global_step": 10000,
+    "num_codes": 3,
+    "psnr_mean": 28.001914723714194,
+    "psnr_std": 0.35356867960949995,
+    "psnr_min": 26.776229858398438,
+    "psnr_max": 28.49432945251465,
+    "fvd": 68.41881648412145
+  },
+  {
+    "checkpoint": "checkpoint_step_15000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_15000.pt",
+    "global_step": 15000,
+    "num_codes": 3,
+    "psnr_mean": 28.53099625905355,
+    "psnr_std": 0.5662143614801377,
+    "psnr_min": 27.123897552490234,
+    "psnr_max": 29.56057357788086,
+    "fvd": 25.72150388711369
+  },
+  {
+    "checkpoint": "checkpoint_step_20000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_20000.pt",
+    "global_step": 20000,
+    "num_codes": 3,
+    "psnr_mean": 28.13398329416911,
+    "psnr_std": 0.5056514025234374,
+    "psnr_min": 26.811046600341797,
+    "psnr_max": 28.637474060058594,
+    "fvd": 37.34827734694662
+  },
+  {
+    "checkpoint": "checkpoint_step_25000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_25000.pt",
+    "global_step": 25000,
+    "num_codes": 3,
+    "psnr_mean": 28.584762827555338,
+    "psnr_std": 0.40294581409776475,
+    "psnr_min": 27.873842239379883,
+    "psnr_max": 29.71562957763672,
+    "fvd": 44.60896022890936
+  },
+  {
+    "checkpoint": "checkpoint_step_30000",
+    "path": "/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_30000.pt",
+    "global_step": 30000,
+    "num_codes": 3,
+    "psnr_mean": 28.38014488220215,
+    "psnr_std": 0.4827923477159971,
+    "psnr_min": 26.832456588745117,
+    "psnr_max": 29.071924209594727,
+    "fvd": 50.62589473555176
+  }
+]

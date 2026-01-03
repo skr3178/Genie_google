@@ -662,8 +662,25 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True conda run -n robot_wm python sc
     --dataset pong \
     --max_steps 5000 \
     --save_every 1000 \
-    --batch_size 1
+    --batch_size 1 \
+    --cpu_offload
 ```
+
+**Memory-efficient version with CPU offloading (recommended for 11-12GB GPUs):**
+```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True conda run -n robot_wm python scripts/train_tokenizer.py \
+    --dataset pong \
+    --max_steps 5000 \
+    --save_every 1000 \
+    --batch_size 1 \
+    --cpu_offload \
+    --gradient_accumulation_steps 2
+```
+
+**Memory options explained:**
+- `--cpu_offload`: Moves optimizer states to CPU between steps, freeing ~1-2GB GPU memory
+- `--gradient_accumulation_steps N`: Accumulates gradients over N batches before updating weights, reducing peak memory
+- `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`: Helps with memory fragmentation
 
 ### Step 2: Train LAM
 ```bash
@@ -802,3 +819,47 @@ cd /media/skr/storage/robot_world/Genie/Genie_SKR && conda run -n robot_wm pytho
 ## Updated Output is slightly better now
 
 <video controls src="generated_frames/run_20260101_155036_step_12000/generated_video.mp4" title="Title"></video>
+
+Atari reconstruction loss should be @
+in range (0.003-0.008)
+
+Tried reducing the model size with lesser number of learnable points: 
+Turns out it doesn't learn that well
+
+Performance:
+Reconstructed values: min=0.000209, max=0.637314, mean=0.009893
+Original values: min=0.0000, max=0.8314, mean=0.0077
+The reconstructed max (0.637) is higher than the small model checkpoints, indicating better training progress. The script normalized it to [0, 1] for visibility.
+
+## script/command to evaluate the saved checkpoint model file visually
+```
+cd /media/skr/storage/robot_world/Genie/Genie_SKR && conda run -n robot_wm python scripts/evaluate_lam_visual.py --checkpoint /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260102_113307/checkpoint_step_10000.pt --data_path data/pong_frames.h5 --num_samples 5 --fps 2.0
+```
+
+
+
+The visualization shows only the last 2 past frames side by side, but the model uses all 16 past frames.
+Model input: 16 past frames (sequence_length: 16)
+Visualization: only the last 2 frames are shown (line 232: num_past = min(2, past_frames.shape[0]))
+This was done to keep the visualization simple. The model processes all 16 frames; we display the last 2 as a sample
+
+
+
+
+Evaluation results show a plateau: PSNR improved from 21.9 (step 5k) to 28.5 (step 15k), then stalled around 28.1–28.6 (steps 15k–30k).
+
+This is the path: /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_15000.pt
+
+
+For video tokenizer use this checkpoint path: 
+
+/media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/run_20260102_104853/checkpoint_step_2288.pt
+
+
+# AM checkpoint (checkpoint_step_15000.pt):
+Config: configs/lam_config_paper.yaml
+Matches: 20 encoder/decoder layers, d_model=1024, num_heads=16, codebook=3 codes, sequence_length=12
+
+# Video tokenizer checkpoint (checkpoint_step_2288.pt):
+Config: configs/tokenizer_config.yaml
+Matches: 6 encoder layers, 8 decoder layers, d_model=384, num_heads=6, codebook=512 codes, sequence_length=8

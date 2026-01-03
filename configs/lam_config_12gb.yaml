@@ -1,0 +1,71 @@
+# Latent Action Model (LAM) Configuration
+# Optimized for 12GB GPU
+# Memory reduction: ~30-40% compared to 16GB config
+
+model:
+  name: "lam"
+  
+  encoder:
+    num_layers: 6  # Reduced from 8 (~25% memory savings)
+    d_model: 384  # Reduced from 512 (~44% memory savings in attention)
+    num_heads: 6  # Reduced from 8 (proportional to d_model)
+    k_q_size: 48  # Reduced from 64 (proportional to d_model)
+    dim_feedforward: 1536  # Reduced from 2048 (~25% memory savings, 4 * d_model)
+    dropout: 0.1
+    activation: "gelu"
+  
+  decoder:
+    num_layers: 6  # Reduced from 8 (~25% memory savings)
+    d_model: 384  # Reduced from 512 (~44% memory savings, matches encoder)
+    num_heads: 6  # Reduced from 8 (proportional to d_model)
+    k_q_size: 48  # Reduced from 64 (proportional to d_model)
+    dim_feedforward: 1536  # Reduced from 2048 (~25% memory savings, 4 * d_model)
+    dropout: 0.1
+    activation: "gelu"
+  
+  codebook:
+    num_codes: 8  # Keep same (small codebook)
+    latent_dim: 32  # Keep same
+    commitment_cost: 0.25
+    decay: 0.99
+    epsilon: 1e-5
+  
+  patch_size: 16  # Keep same
+
+data:
+  sequence_length: 12  # Reduced from 16 (~25% memory savings)
+  fps: 10
+  resolution: [128, 72, 3]  # [H, W, C] - keep same resolution
+  batch_size: 2  # Reduced from 4 (~50% memory savings)
+  num_workers: 2  # Reduced from 4
+
+training:
+  max_lr: 3.0e-4
+  min_lr: 3.0e-4
+  beta1: 0.9
+  beta2: 0.9
+  weight_decay: 1.0e-4
+  warmup_steps: 2000
+  max_steps: 20000
+  lr_schedule: "cosine"
+  
+  # Loss weights
+  reconstruction_weight: 1.0
+  commitment_weight: 0.25
+  codebook_weight: 1.0
+  
+  # Training settings
+  mixed_precision: true  # CRITICAL: Keep enabled for memory savings
+  gradient_checkpointing: true  # CRITICAL: Keep enabled for memory savings
+  max_grad_norm: 1.0
+  save_every: 5000
+  eval_every: 1000
+  
+  # Memory management (tuned for 12GB GPU)
+  memory_offload_interval: 100  # More frequent offloading
+  aggressive_cleanup_interval: 10  # More frequent cleanup
+  memory_threshold_gb: 9.0  # Trigger cleanup at 9GB (lower than 16GB config)
+
+output:
+  checkpoint_dir: "checkpoints/lam"
+  log_dir: "logs/lam"
