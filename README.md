@@ -1,179 +1,125 @@
-# Genie Model Implementation
+# Genie Training Pipeline
 
-A minimal skeleton implementation of the Genie model architecture, scaled down for 16GB GPU training.
+This document describes the training commands used to train each component of the Genie world model.
 
-## Overview
+---
 
-This implementation includes:
+## 1. Train Video Tokenizer
 
-- **Video Tokenizer (ST-ViViT)**: Compresses videos into discrete tokens
-- **Latent Action Model (LAM)**: Learns discrete action space from frame transitions
-- **Dynamics Model**: Predicts future frames autoregressively using MaskGIT
-- **ST-Transformer Backbone**: Memory-efficient spatiotemporal transformer with factored attention
-
-## Architecture
-
-The model uses a sequential training approach:
-1. Train Video Tokenizer on video frames
-2. Train LAM on raw pixels (with tokenizer frozen)
-3. Train Dynamics Model on tokens + actions (with tokenizer and LAM frozen)
-
-## Installation
+**Run ID:** `run_20260102_104853`  
+**Checkpoint Used:** `checkpoint_step_2288.pt`  
+**Config:** `configs/tokenizer_config.yaml`
 
 ```bash
-pip install -r requirements.txt
-```
-
-## Configuration
-
-Hyperparameters are configured via YAML files in `configs/`:
-
-- `tokenizer_config.yaml`: Video tokenizer settings
-- `lam_config.yaml`: LAM settings
-- `dynamics_config.yaml`: Dynamics model settings
-
-All models are scaled down from the original paper for 16GB GPU:
-- Video Tokenizer: 6/10 layers (vs 12/20), d_model 384/512 (vs 512/1024)
-- LAM: 8 layers (vs 20), d_model 512 (vs 1024)
-- Dynamics: 12 layers (vs 48), d_model 768 (vs 5120)
-- Total: ~150M parameters (vs 10.7B original)
-
-## Usage
-
-### Training
-
-#### 1. Train Video Tokenizer
-
-```bash
-python scripts/train_tokenizer.py \
+conda run -n robot_wm python -u scripts/train_tokenizer.py \
     --config configs/tokenizer_config.yaml \
     --data_dir data \
-    --device cuda
+    --dataset pong \
+    --device cuda \
+    --max_steps 5000
 ```
 
-#### 2. Train LAM
+**Notes:**
+- Trained on Pong dataset with 128x72 resolution
+- Uses VQ codebook with 512 codes
+- Mixed precision training enabled
+- Full training (upto 5k steps) doesn't fit the GPU memory. 
+- Visual evaluation of reconstruction says that the model has learnt well
+---
+
+## 2. Train Latent Action Model (LAM)
+
+**Run ID:** `run_20260103_073359`  
+**Checkpoint Used:** `checkpoint_step_15000.pt`  
+**Config:** `configs/lam_config_paper.yaml`
 
 ```bash
-python scripts/train_lam.py \
-    --config configs/lam_config.yaml \
-    --data_dir data \
-    --device cuda
-```
-
-#### 3. Train Dynamics Model
-
-```bash
-python scripts/train_dynamics.py \
-    --config configs/dynamics_config.yaml \
+conda run -n robot_wm python -u scripts/train_lam.py \
+    --config configs/lam_config_paper.yaml \
     --data_dir data \
     --dataset pong \
-    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
-    --lam_path checkpoints/lam/checkpoint_step_1000.pt \
     --device cuda \
-    --max_steps 1000
+    --max_steps 30000
 ```
 
-**Note**: Use `--max_steps` to override the default training steps. Use `--batch_size` to override batch size for memory management.
+**Notes:**
+- Uses paper hyperparameters (20 layers, 1024 d_model)
+- 3-action codebook (up, down, do nothing) for Pong. Learns faster
+- Trained to predict next frame from past frames
 
-### Inference
+---
 
-**Important**: At inference time, only the tokenizer and dynamics model are needed. LAM is NOT used during inference (as per Genie paper - users provide actions directly).
+## 3. Train Dynamics Model
 
-#### Option 1: Save as Individual Frames (Recommended for viewing in editors)
-
-```bash
-python scripts/inference.py \
-    --prompt path/to/prompt_image.png \
-    --actions "0,1,2,3,4,5,6,7" \
-    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
-    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
-    --output generated_frames \
-    --save_frames \
-    --num_frames 16 \
-    --device cuda
-```
-
-This saves frames as `frame_0000.png`, `frame_0001.png`, etc. in the output directory.
-
-#### Option 2: Save as MP4 Video
+**Run ID:** `run_20260103_133845`  
+**Config:** `configs/dynamics_config_3actions.yaml`  
+**LAM Config:** `configs/lam_config_paper.yaml`
 
 ```bash
-python scripts/inference.py \
-    --prompt path/to/prompt_image.png \
-    --actions "0,1,2,3,4,5,6,7" \
-    --tokenizer_path checkpoints/tokenizer/checkpoint_step_1000.pt \
-    --dynamics_path checkpoints/dynamics/checkpoint_step_300.pt \
-    --output generated_video.mp4 \
-    --num_frames 16 \
-    --device cuda
-```
-
-#### Extract Prompt Frame from Dataset
-
-To extract a frame from your training dataset to use as a prompt:
-
-```bash
-python scripts/extract_prompt_frame.py \
+conda run -n robot_wm python -u scripts/train_dynamics.py \
+    --config configs/dynamics_config_3actions.yaml \
+    --lam_config configs/lam_config_paper.yaml \
+    --tokenizer_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/tokenizer/run_20260102_104853/checkpoint_step_2288.pt \
+    --lam_path /media/skr/storage/robot_world/Genie/Genie_SKR/checkpoints/lam/run_20260103_073359/checkpoint_step_15000.pt \
     --data_dir data \
-    --frame_idx 0 \
-    --output pong_prompt.png
+    --dataset pong \
+    --device cuda \
+    --max_steps 10000
 ```
 
-#### Test Generation Pipeline
+**Notes:**
+- Uses frozen tokenizer and LAM from previous stages
+- MaskGIT-style training for next-token prediction
+- 8 transformer layers, 640 d_model
 
-To test the complete generation pipeline:
+---
 
-```bash
-python scripts/test_generation.py
-```
+# Loss Curves
 
-## Data Format
+## Tokenizer Training Loss
+*Note: Training log for exact run not available, loss curve may be from a different run*
 
-The dataset loader expects H5 files in the `data/` directory with video frames stored as:
-- Key: `frames` or `images`
-- Shape: `(T, H, W, C)` or `(T, C, H, W)`
-- Values: uint8 (0-255) or float (0-1)
+![Tokenizer Loss](tokenizer_loss_curve.png)
 
-## Model Components
+## LAM Training Loss (run_20260103_073359)
 
-### ST-Transformer
-Memory-efficient transformer with factored spatial and temporal attention:
-- Spatial attention: O(H×W) per frame
-- Temporal attention: O(T) per spatial position
-- Total complexity: O(T×H×W) instead of O((T×H×W)²)
+![LAM Loss](lam_run_073359_loss_curve.png)
 
-### Video Tokenizer
-ST-ViViT implementation:
-- Encoder: 6 layers, d_model=384, patch_size=4
-- Decoder: 10 layers, d_model=512, patch_size=4
-- Codebook: 512 codes, dim=32 (scaled down from 1024)
+## Dynamics Training Loss (run_20260103_133845)
 
-### LAM
-Latent Action Model:
-- Encoder: 8 layers, d_model=512, patch_size=16
-- Decoder: 8 layers, d_model=512, patch_size=16
-- Codebook: 8 codes, dim=32
+![Dynamics Loss](training_dynamics5_loss_curve.png)
 
-### Dynamics Model
-MaskGIT-based dynamics predictor:
-- 8 layers, d_model=640, num_heads=8, k/q_size=256 (scaled down for memory)
-- Token embeddings: 512 vocab size (must match tokenizer codebook)
-- Action embeddings: 8 actions
-- Inference: 25 MaskGIT steps, temperature=2.0
+---
 
-## Training Notes
+# Output Videos
 
-- Mixed precision training (bfloat16) is enabled by default
-- Gradient checkpointing is available for memory efficiency
-- All models use AdamW optimizer with cosine learning rate decay
-- Training steps are scaled down for faster iteration (10k-30k vs 300k original)
+## Tokenizer Reconstruction
+- `evaluations/tokenizer/comparison_checkpoint_step_2288.mp4` - Short comparison
+- `evaluations/tokenizer/comparison_checkpoint_step_2288_long_7seq.mp4` - Extended sequence
 
-## References
+## LAM Prediction
+- `evaluations/lam/visual_eval_step_15000_run_073359.mp4` - Next frame prediction
 
-- **STTN**: Conceptual reference for spatial attention patterns (https://github.com/researchmm/STTN)
-- **VQ-VAE**: Conceptual reference for vector quantization (https://github.com/MishaLaskin/vqvae)
-- All code implemented from scratch based on the Genie paper specifications
+## Dynamics Generation
+- `evaluations/dynamics/dynamics_comparison_step_7000.mp4` - Action-conditioned generation
+- `evaluations/dynamics/long_video/dynamics_comparison_step_7000.mp4` - Extended generation
 
-## License
 
-This implementation is for educational purposes.
+## Latent action model
+
+15000 is shown to have the best metric as model starts overfitting 
+
+<video controls src="evaluations/lam/visual_eval_step_15000_run_073359_segment2.mp4" title="Title"></video>
+
+## Video Tokenizer
+
+Checkpoint step 2288 - Original vs Reconstruction comparison:
+
+<video controls src="evaluations/tokenizer/comparison_checkpoint_step_2288.mp4" title="Tokenizer Reconstruction"></video>
+
+Extended sequence (7 frames):
+
+<video controls src="evaluations/tokenizer/comparison_checkpoint_step_2288_long_7seq.mp4" title="Tokenizer Extended"></video>
+
+## Dynamics model
+<video controls src="evaluations/dynamics/long_video/dynamics_comparison_step_7000.mp4" title="Title"></video>
