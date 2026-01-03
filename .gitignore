@@ -72,6 +72,8 @@ examples/*_result.mp4
 *.png
 # Allow loss curve images for README
 !*_loss_curve.png
+# Allow GIF files for README demos
+!evaluations/**/*.gif
 *.zip
 
 # Generated outputs

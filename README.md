@@ -105,21 +105,22 @@ conda run -n robot_wm python -u scripts/train_dynamics.py \
 - `evaluations/dynamics/long_video/dynamics_comparison_step_7000.mp4` - Extended generation
 
 
-## Latent action model
+## Latent Action Model
 
 15000 is shown to have the best metric as model starts overfitting 
 
-<video controls src="evaluations/lam/visual_eval_step_15000_run_073359_segment2.mp4" title="Title"></video>
+![LAM Prediction](evaluations/lam/visual_eval_step_15000_run_073359_segment2.gif)
 
 ## Video Tokenizer
 
 Checkpoint step 2288 - Original vs Reconstruction comparison:
 
-<video controls src="evaluations/tokenizer/comparison_checkpoint_step_2288.mp4" title="Tokenizer Reconstruction"></video>
+![Tokenizer Reconstruction](evaluations/tokenizer/comparison_checkpoint_step_2288.gif)
 
 Extended sequence (7 frames):
 
-<video controls src="evaluations/tokenizer/comparison_checkpoint_step_2288_long_7seq.mp4" title="Tokenizer Extended"></video>
+![Tokenizer Extended](evaluations/tokenizer/comparison_checkpoint_step_2288_long_7seq.gif)
 
-## Dynamics model
-<video controls src="evaluations/dynamics/long_video/dynamics_comparison_step_7000.mp4" title="Title"></video>
+## Dynamics Model
+
+![Dynamics Generation](evaluations/dynamics/long_video/dynamics_comparison_step_7000.gif)
